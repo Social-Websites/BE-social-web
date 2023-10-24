@@ -22,7 +22,8 @@ const postSchema = new Schema({
   comments: [{ type: Types.ObjectId, ref: "Comment" }],
   shared_by: { type: Types.ObjectId, ref: "User" },
   original_post: { type: Types.ObjectId, ref: "Post" },
-  timestamps: { createdAt: "created_at", updatedAt: "updated_at" },
+}, {
+  timestamps: { createdAt: "created_at", updatedAt: "updated_at" }
 });
 
 postSchema.plugin(uniqueValidator);

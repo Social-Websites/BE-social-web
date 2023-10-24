@@ -18,7 +18,8 @@ const commentSchema = new Schema({
     },
   ],
   replies: [{ type: Types.ObjectId, ref: "Comment" }],
-  timestamps: { createdAt: "created_at", updatedAt: "updated_at" },
+}, {
+  timestamps: { createdAt: "created_at", updatedAt: "updated_at" }
 });
 
 commentSchema.plugin(uniqueValidator);

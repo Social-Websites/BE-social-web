@@ -8,7 +8,8 @@ const mentionSchema = new Schema({
   post_id: { type: Types.ObjectId, required: true, ref: "Post" },
   comment_id: { type: Types.ObjectId, required: true, ref: "Comment" },
   user_mentioned: [{ type: Types.ObjectId, required: true, ref: "User" }],
-  timestamps: { createdAt: "created_at", updatedAt: "updated_at" },
+}, {
+  timestamps: { createdAt: "created_at", updatedAt: "updated_at" }
 });
 
 mentionSchema.plugin(uniqueValidator);

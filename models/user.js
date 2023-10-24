@@ -28,7 +28,8 @@ const userSchema = new Schema({
   self_lock: { type: Boolean },
   block_list: [{ type: Types.ObjectId, ref: "User" }],
   profile_url: { type: String },
-  timestamps: { createdAt: "created_at", updatedAt: "updated_at" },
+}, {
+  timestamps: { createdAt: "created_at", updatedAt: "updated_at" }
 });
 
 userSchema.plugin(uniqueValidator);
