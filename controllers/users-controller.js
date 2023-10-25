@@ -5,12 +5,16 @@ const { validationResult } = require("express-validator");
 const { generateToken } = require("../middlewares/token-handler");
 
 const getUser = async (req, res, next) => {
-  const userID = req.user._id;
-  await Users.find({ _id: userID })
-    .then((users) => {
-      res.json(users);
-    })
-    .catch(next);
+  const userId = req.params.userId; // ID của người dùng
+  try {
+    await User.find({ _id: userId })
+      .then((users) => {
+        res.json(users);
+      })
+      .catch(next);
+  } catch (error) {
+    next(error);
+  }
 };
 
 // body:{
