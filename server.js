@@ -10,7 +10,7 @@ const bodyParser = require("body-parser");
 
 require("dotenv").config();
 
-const usersRoute = require("./routes/users-routes");
+const route = require('./routes/index');
 const app = express();
 
 app.use(express.json());
@@ -32,17 +32,17 @@ DBconnect(() => {
 });
 
 const oneDay = 1000 * 60 * 60 * 24;
-app.use(
-  session({
-    secret: "team2-uptech",
-    resave: false,
-    saveUninitialized: true,
-    cookie: { maxAge: oneDay },
-  })
-);
+// app.use(
+//   session({
+//     secret: "team2-uptech",
+//     resave: false,
+//     saveUninitialized: true,
+//     cookie: { maxAge: oneDay },
+//   })
+// );
 
 app.use(express.json());
-app.use("/api/users", usersRoute);
+app.use('/api', route)
 
 // Sử dụng body-parser middleware
 app.use(bodyParser.json({ limit: "50mb" }));

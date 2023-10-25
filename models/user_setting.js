@@ -8,7 +8,8 @@ const userSettingSchema = new Schema({
   notification_setting: { type: String },
   privacy_setting: { type: String },
   theme: { type: String },
-  timestamps: { createdAt: "created_at", updatedAt: "updated_at" },
+}, {
+  timestamps: { createdAt: "created_at", updatedAt: "updated_at" }
 });
 
 userSettingSchema.plugin(uniqueValidator);

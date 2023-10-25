@@ -4,6 +4,15 @@ const bcrypt = require("bcrypt");
 const { validationResult } = require("express-validator");
 const { generateToken } = require("../middlewares/token-handler");
 
+const getUser = async (req, res, next) => {
+  const userID = req.user._id;
+  await Users.find({ _id: userID })
+    .then((users) => {
+      res.json(users);
+    })
+    .catch(next);
+};
+
 // body:{
 //     "email":"",
 //     "fullname":"",
@@ -131,3 +140,4 @@ const login = async (req, res, next) => {
 
 exports.signup = signup;
 exports.login = login;
+exports.getUser = getUser;

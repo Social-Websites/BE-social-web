@@ -10,7 +10,8 @@ const chatGroupSchema = new Schema({
   admins: [{ type: Types.ObjectId, required: true, ref: "User" }],
   members: [{ type: Types.ObjectId, required: true, ref: "User" }],
   avatar: { type: String },
-  timestamps: { createdAt: "created_at", updatedAt: "updated_at" },
+}, {
+  timestamps: { createdAt: "created_at", updatedAt: "updated_at" }
 });
 
 chatGroupSchema.plugin(uniqueValidator);

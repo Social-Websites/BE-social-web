@@ -9,7 +9,8 @@ const groupMessageSchema = new Schema({
   content: { type: String },
   media: { type: String },
   removed: { type: Boolean },
-  timestamps: { createdAt: "created_at", updatedAt: "updated_at" },
+}, {
+  timestamps: { createdAt: "created_at", updatedAt: "updated_at" }
 });
 
 groupMessageSchema.plugin(uniqueValidator);
