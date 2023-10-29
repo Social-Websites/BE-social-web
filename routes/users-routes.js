@@ -1,11 +1,13 @@
 const express = require("express");
 const UsersController = require("../controllers/users-controller");
+const { check } = require("express-validator");
+const { verifyAccessToken } = require("../middlewares/token-handler");
 
 const router = express.Router();
 
-router.get("/:userId", UsersController.getUser);
+// routes need access token
+router.use(verifyAccessToken);
 
-router.post("/signup", UsersController.signup);
-router.post("/login", UsersController.login);
+router.get("/getuser", UsersController.getUser);
 
 module.exports = router;

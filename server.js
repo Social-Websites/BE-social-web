@@ -7,10 +7,11 @@ const helmet = require("helmet");
 const compress = require("compression");
 const cors = require("cors");
 const bodyParser = require("body-parser");
+const cookieParser = require("cookie-parser");
 
 require("dotenv").config();
 
-const route = require('./routes/index');
+const route = require("./routes/index");
 const app = express();
 
 app.use(express.json());
@@ -21,6 +22,7 @@ app.use(helmet());
 // HTTP  logger
 app.use(morgan("combined"));
 app.use(cors());
+app.use(cookieParser());
 app.set("view engine", "pug");
 
 //ConnectDB
@@ -42,7 +44,7 @@ const oneDay = 1000 * 60 * 60 * 24;
 // );
 
 app.use(express.json());
-app.use('/api', route)
+app.use("/api", route);
 
 // Sử dụng body-parser middleware
 app.use(bodyParser.json({ limit: "50mb" }));

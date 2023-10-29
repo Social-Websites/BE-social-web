@@ -14,7 +14,7 @@ const userInfoSchema = {
 const userSchema = new Schema(
   {
     username: { type: String, required: true, unique: true },
-    password: { type: String, minLength: 4 },
+    password: { type: String, required: true, minLength: 4 },
     full_name: { type: String, required: true },
     search_keyword: { type: String },
     user_info: userInfoSchema,
