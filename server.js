@@ -21,7 +21,12 @@ app.use(compress());
 app.use(helmet());
 // HTTP  logger
 app.use(morgan("combined"));
-app.use(cors());
+
+const corsOptions = {
+  origin: "http://localhost:3000",
+  credentials: true,
+};
+app.use(cors(corsOptions));
 app.use(cookieParser());
 app.set("view engine", "pug");
 

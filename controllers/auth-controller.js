@@ -70,20 +70,20 @@ const signup = async (req, res, next) => {
     return next(error);
   }
 
-  let accessToken;
+  // let accessToken;
   // let refreshToken;
-  try {
-    accessToken = generateToken(existingUser, "access", "6h");
-    // refreshToken = generateToken(existingUser, "refresh", "7d");
-  } catch (err) {
-    const error = new HttpError(
-      "Có lỗi trong quá trình đăng ký, vui lòng thử lại sau!",
-      500
-    );
-    return next(error);
-  }
+  // try {
+  //   accessToken = generateToken(existingUser, "access", "6h");
+  //   refreshToken = generateToken(existingUser, "refresh", "7d");
+  // } catch (err) {
+  //   const error = new HttpError(
+  //     "Có lỗi trong quá trình đăng ký, vui lòng thử lại sau!",
+  //     500
+  //   );
+  //   return next(error);
+  // }
 
-  res.status(201).json({ accessToken: accessToken });
+  res.status(201);
 };
 
 const login = async (req, res, next) => {
