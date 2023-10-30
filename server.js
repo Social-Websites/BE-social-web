@@ -1,3 +1,4 @@
+const { Server } = require("socket.io");
 const express = require("express");
 const HttpError = require("./models/http-error");
 
@@ -33,8 +34,26 @@ app.set("view engine", "pug");
 //ConnectDB
 const { DBconnect } = require("./configs/ConnectDB");
 DBconnect(() => {
-  app.listen(process.env.PORT, () => {
+  const server = app.listen(process.env.PORT, () => {
     console.log(`app is running on port ${process.env.PORT}`);
+  });
+  const io = new Server(server, {
+    cors : {
+      origin: "http://localhost:3000",
+    }
+  });
+  global.onlineUsers = new Map();
+  io.on("connection", (socket) => {
+    global.chatSocket = socket;
+    socket.on("add-user", (userId) => { 
+      onlineUsers.set(userId, socket.id);
+    });
+    socket.on("send-msg", (data) => { 
+      const sendUserSocket = onlineUsers.get(data.conversationId);
+      if(sendUserSocket){
+        socket.to(sendUserSocket).emit("msg-recieve");
+      }
+    });
   });
 });
 
@@ -67,3 +86,5 @@ app.use((error, req, res, next) => {
   res.status(error.code || 500);
   res.json({ message: error.message || "Lỗi không xác định!" });
 });
+
+
