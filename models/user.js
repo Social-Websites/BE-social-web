@@ -6,7 +6,7 @@ const { Schema, Types } = mongoose;
 const userInfoSchema = {
   date_of_birth: { type: Date },
   gender: { type: Boolean },
-  email: { type: String },
+  email: { type: String, required: true, unique: true },
   phone: { type: String, minLength: 10, maxLength: 12 },
   home_town: { type: String },
 };
@@ -29,7 +29,7 @@ const userSchema = new Schema(
     self_lock: { type: Boolean },
     block_list: [{ type: Types.ObjectId, ref: "User" }],
     profile_url: { type: String },
-    admin: { type: Boolean, required: true },
+    admin: { type: Boolean, required: true, default: false },
   },
   { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } }
 );

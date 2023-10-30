@@ -4,7 +4,7 @@ const User = require("../models/user");
 const getUser = async (req, res, next) => {
   const userId = req.userData.id; // ID của người dùng
   try {
-    const user = await User.findById(userId);
+    const user = await User.findById(userId).select("-password");
     res.json(user);
   } catch (errors) {
     const error = new HttpError(
