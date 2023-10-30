@@ -1,26 +1,37 @@
 const Messages = require("../models/message");
+const User = require("../models/user");
 const Conversation = require("../models/conversation");
 
 
 class MessagesController {
   async getMessages(req, res, next) {
-    const conversationId = req.params.conversationId;;
-    await Messages.find({conversation_id: conversationId})
+    const conversationId = req.params.conversationId;
+    const messagesInfo = [];
+    try{
+      const messages = await Messages.find({conversation_id: conversationId})
       .sort({ createdAt: 1 })
-      .then((messages) => {
-        res.json(messages);
-      })
-      .catch(next);
+      .exec();
+
+      for (const message of messages) {
+        const sender = await User.findById(message.sender).exec();
+        messagesInfo.push({_id: message._id, sender_id:message.sender, name: sender.full_name, img: sender.profile_picture, content: message.content, media: message.media});
+      }
+      res.json(messagesInfo);
+    }
+     catch (error) {
+      next(error);
+    }
+    
   }
 
   async sendMessage(req, res, next) {
-    const { conversationId, senderId, content, media } = req.body;
+    const { conversationId, sender_id, content, media } = req.body;
   
     try {
       // Tạo tin nhắn mới
       const message = new Messages({
         conversation_id: conversationId,
-        sender: senderId,
+        sender: sender_id,
         content,
         media,
         removed: false
