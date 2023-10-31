@@ -121,8 +121,8 @@ const login = async (req, res, next) => {
   let accessToken;
   let refreshToken;
   try {
-    accessToken = generateToken(existingUser, "access", "10s");
-    refreshToken = generateToken(existingUser, "refresh", "15s");
+    accessToken = generateToken(existingUser, "access", "6h");
+    refreshToken = generateToken(existingUser, "refresh", "7d");
   } catch (err) {
     const error = new HttpError(
       "Có lỗi trong quá trình đăng nhập, vui lòng thử lại sau!",
