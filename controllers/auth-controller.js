@@ -57,7 +57,7 @@ const signup = async (req, res, next) => {
     user_info: {
       email: email,
     },
-    admin: false,
+    search_keyword: `${username};${fullname};${email}`,
   });
 
   try {
@@ -83,7 +83,7 @@ const signup = async (req, res, next) => {
   //   return next(error);
   // }
 
-  res.status(201);
+  res.status(201).json({ message: "Đăng ký thành công!" });
 };
 
 const login = async (req, res, next) => {
