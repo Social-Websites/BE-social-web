@@ -28,19 +28,24 @@ class ConversationController {
       for (const conversation of conversations) {
         const message = await Message.findById(conversation.last_message).exec();
         let last_message = "";
-        
+        const userIds = [];
+
+        const friends = await User.findById(conversation.users.filter(item => item != userId)).exec();
+        const friendIdsArray = Array.isArray(friends) ? friends : [friends];
+        for(const user of friendIdsArray){
+          userIds.push(user._id);
+        }
         if(!conversation.is_group){
-          const friend = await User.findById(conversation.users.filter(item => item != userId)).exec();
           if(message.sender != userId){
             last_message = message.content;
           }
           else{
             last_message = "You: " + message.content;
           }
-          conversationInfo.push({_id: conversation._id, name: friend.full_name, img: friend.profile_picture, lastMsg: last_message});
+          conversationInfo.push({_id: conversation._id, userIds: userIds, name: friends.full_name, img: friends.profile_picture, lastMsg: last_message});
         }
         else
-          conversationInfo.push({_id: conversation._id, name: conversation.name, img: conversation.avatar, lastMsg: last_message})
+          conversationInfo.push({_id: conversation._id, userIds: userIds, name: conversation.name, img: conversation.avatar, lastMsg: last_message})
       }
 
       res.json(conversationInfo);

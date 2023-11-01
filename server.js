@@ -1,6 +1,6 @@
-const { Server } = require("socket.io");
 const express = require("express");
 const HttpError = require("./models/http-error");
+const { Server } = require("socket.io");
 
 const session = require("express-session");
 const morgan = require("morgan");
@@ -49,10 +49,13 @@ DBconnect(() => {
       onlineUsers.set(userId, socket.id);
     });
     socket.on("send-msg", (data) => { 
-      const sendUserSocket = onlineUsers.get(data.conversationId);
-      if(sendUserSocket){
-        socket.to(sendUserSocket).emit("msg-recieve");
-      }
+      const recieveIds = data.recieve_ids;
+      recieveIds.forEach((recieveId) => {
+        const sendUserSocket = onlineUsers.get(recieveId);
+        if (sendUserSocket) {
+          socket.to(sendUserSocket).emit("msg-recieve", data);
+        }
+      });
     });
   });
 });
