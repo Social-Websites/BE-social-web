@@ -11,7 +11,7 @@ const messageSchema = new Schema({
   },
   sender: { type: Types.ObjectId, required: true, ref: "User" },
   content: { type: String },
-  media: { type: String },
+  media: [{ type: String }],
   removed: { type: Boolean },
 }, {
   timestamps: { createdAt: "created_at", updatedAt: "updated_at" }
