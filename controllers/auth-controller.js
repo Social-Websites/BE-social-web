@@ -5,7 +5,57 @@ const { validationResult } = require("express-validator");
 const {
   generateToken,
   verifyRefreshToken,
+  generateResetToken,
+  generateOtpToken,
+  verifyResetToken,
+  verifyOtpToken,
 } = require("../middlewares/token-handler");
+const sendMail = require("../util/email");
+const removeVietnameseTones = require("../util/removeVietnameseTones");
+const generateOTP = require("../util/otp-generator");
+
+const getOtpSignUp = async (req, res, next) => {
+  const username = req.params.username;
+  const email = req.params.email;
+
+  let existingUser;
+  try {
+    existingUser = await User.findOne({
+      $or: [{ "user_info.email": email }, { username: username }],
+    });
+  } catch (err) {
+    console.log("db: ", err);
+    const error = new HttpError(
+      "Có lỗi trong quá trình đăng ký, vui lòng thử lại sau!",
+      500
+    );
+    return next(error);
+  }
+
+  if (existingUser) {
+    const error = new HttpError("Tên người dùng hoặc email đã tồn tại!", 422);
+    return next(error);
+  }
+
+  const OTP = generateOTP(6);
+  let otpToken;
+
+  try {
+    otpToken = generateOtpToken(username, OTP);
+    const message = `Mã OTP để xác thực email đăng ký người dùng là: ${OTP}`;
+    const subject = `Hoàn tất xác thực đăng ký người dùng`;
+    await sendMail({ mailto: email, subject: subject, emailMessage: message });
+  } catch (err) {
+    console.log("Mail: ", err);
+    const error = new HttpError(
+      "Có lỗi trong quá trình đăng ký, vui lòng thử lại sau!",
+      500
+    );
+    return next(error);
+  }
+
+  res.status(200).json({ otpToken: otpToken });
+};
 
 // body:{
 //     "email":"",
@@ -13,12 +63,31 @@ const {
 //     "username":"",
 //     "password":""
 // }
-const signup = async (req, res, next) => {
+const signUp = async (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
     return next(new HttpError("Giá trị nhập vào không hợp lệ!", 422));
   }
-  const { email, fullname, username, password } = req.body;
+  const { otp, otpToken, email, fullname, username, password } = req.body;
+
+  const decodedToken = verifyOtpToken(otpToken);
+  if (!decodedToken) {
+    const error = new HttpError("Có lỗi khi xác thực!", 403);
+    return next(error);
+  }
+
+  console.log(decodedToken.otp);
+  console.log(otp);
+
+  if (
+    decodedToken.otp.toString() !== otp.trim() ||
+    decodedToken.username.trim() !== username.trim()
+  ) {
+    console.log(decodedToken.username);
+    console.log(username);
+    const error = new HttpError("Xác thực không thành công!", 403);
+    return next(error);
+  }
 
   let existingUser;
   try {
@@ -57,7 +126,7 @@ const signup = async (req, res, next) => {
     user_info: {
       email: email,
     },
-    search_keyword: `${username};${fullname};${email}`,
+    search_keyword: `${removeVietnameseTones(fullname)}`,
   });
 
   try {
@@ -69,19 +138,6 @@ const signup = async (req, res, next) => {
     );
     return next(error);
   }
-
-  // let accessToken;
-  // let refreshToken;
-  // try {
-  //   accessToken = generateToken(existingUser, "access", "6h");
-  //   refreshToken = generateToken(existingUser, "refresh", "7d");
-  // } catch (err) {
-  //   const error = new HttpError(
-  //     "Có lỗi trong quá trình đăng ký, vui lòng thử lại sau!",
-  //     500
-  //   );
-  //   return next(error);
-  // }
 
   res.status(201).json({ message: "Đăng ký thành công!" });
 };
@@ -180,7 +236,150 @@ const logout = (req, res) => {
   res.json({ message: "Đã xóa cookie!" });
 };
 
-exports.signup = signup;
+const sendResetVerification = async (req, res, next) => {
+  const { usernameOrEmail } = req.body;
+
+  let existingUser;
+  try {
+    existingUser = await User.findOne({
+      $or: [
+        { username: usernameOrEmail },
+        { "user_info.email": usernameOrEmail },
+      ],
+      admin: false,
+    });
+  } catch (err) {
+    const error = new HttpError("Có lỗi xảy ra, vui lòng thử lại sau!", 500);
+    return next(error);
+  }
+
+  if (!existingUser) {
+    const error = new HttpError("Tên tài khoản hoặc email không tồn tại!", 401);
+    return next(error);
+  }
+
+  let resetToken;
+  try {
+    resetToken = generateResetToken(existingUser._id);
+    existingUser.reset_token = resetToken;
+    await existingUser.save();
+  } catch (err) {
+    const error = new HttpError("Có lỗi xảy ra, vui lòng thử lại sau!", 500);
+    return next(error);
+  }
+
+  const resetUrl = `${req.get("origin")}/accounts/reset-password/${resetToken}`;
+  const email = existingUser.user_info.email;
+  console.log(email);
+  const message = `Nhấn vào đường dẫn dưới đây để có thể đặt lại mật khẩu:\n\n${resetUrl}\n\nVui lòng không được chia sẻ đường dẫn này cho bất kì ai!`;
+  const subject = `Yêu cầu đặt lại mật khẩu của người dùng ${existingUser.full_name}`;
+  try {
+    await sendMail({ mailto: email, subject: subject, emailMessage: message });
+  } catch (err) {
+    console.log("Mail: ", err);
+    const error = new HttpError("Có lỗi xảy ra, vui lòng thử lại sau!", 500);
+    return next(error);
+  }
+
+  res.json({
+    message: "Đã gửi đường dẫn đặt lại mật khẩu đến email của người dùng!",
+  });
+};
+
+const verifyResetLink = async (req, res, next) => {
+  const token = req.params.token;
+
+  const decodedToken = verifyResetToken(token);
+  if (!decodedToken) {
+    const error = new HttpError("Đường dẫn hết hạn!", 403);
+    return next(error);
+  }
+
+  const id = decodedToken.id;
+
+  let existingUser;
+  try {
+    existingUser = await User.findOne({ _id: id, admin: false });
+  } catch (err) {
+    const error = new HttpError("Có lỗi trong quá trình xác thực!", 500);
+    return next(error);
+  }
+
+  if (!existingUser) {
+    const error = new HttpError("Đường dẫn không hợp lệ!", 403);
+    return next(error);
+  }
+
+  if (existingUser.reset_token.trim() !== token) {
+    const error = new HttpError("Đường dẫn không hợp lệ!", 403);
+    return next(error);
+  }
+
+  res.json({
+    message: "Đường dẫn đặt lại mật khẩu hợp lệ!",
+  });
+};
+
+const resetPassword = async (req, res, next) => {
+  const { resetToken, password } = req.body;
+
+  const decodedToken = verifyResetToken(resetToken);
+  if (!decodedToken) {
+    const error = new HttpError("Có lỗi xác thực!", 403);
+    return next(error);
+  }
+
+  const id = decodedToken.id;
+
+  let existingUser;
+  try {
+    existingUser = await User.findOne({ _id: id, admin: false });
+  } catch (err) {
+    const error = new HttpError("Có lỗi trong quá trình xác thực!", 500);
+    return next(error);
+  }
+
+  if (!existingUser) {
+    const error = new HttpError("Người dùng không tồn tại!", 401);
+    return next(error);
+  }
+
+  if (existingUser.reset_token.trim() !== resetToken) {
+    const error = new HttpError("Đặt lại mật khẩu thất bại!", 403);
+    return next(error);
+  }
+
+  const saltRounds = 10;
+  let hashPass;
+  try {
+    hashPass = await bcrypt.hash(password, saltRounds);
+  } catch (err) {
+    const error = new HttpError(
+      "Có lỗi trong quá trình đặt lại mật khẩu, vui lòng thử lại sau!",
+      500
+    );
+    return next(error);
+  }
+
+  try {
+    existingUser.password = hashPass;
+    existingUser.reset_token = "";
+    await existingUser.save();
+  } catch (err) {
+    const error = new HttpError("Có lỗi xảy ra, vui lòng thử lại sau!", 500);
+    return next(error);
+  }
+
+  res.json({
+    message: "Đặt lại mật khẩu thành công!",
+  });
+};
+
+exports.getOtpSignUp = getOtpSignUp;
+exports.signUp = signUp;
 exports.login = login;
 exports.refresh = refresh;
 exports.logout = logout;
+exports.sendResetVerification = sendResetVerification;
+exports.verifyResetLink = verifyResetLink;
+exports.resetPassword = resetPassword;

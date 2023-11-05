@@ -13,7 +13,13 @@ const userInfoSchema = {
 
 const userSchema = new Schema(
   {
-    username: { type: String, required: true, unique: true },
+    username: {
+      type: String,
+      required: true,
+      unique: true,
+      minLength: 5,
+      maxLength: 15,
+    },
     password: { type: String, required: true, minLength: 4 },
     full_name: { type: String, required: true },
     search_keyword: { type: String, required: true },
@@ -31,6 +37,7 @@ const userSchema = new Schema(
     block_list: [{ type: Types.ObjectId, ref: "User" }],
     profile_url: { type: String },
     admin: { type: Boolean, required: true, default: false },
+    reset_token: { type: String },
   },
   { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } }
 );
