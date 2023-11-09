@@ -26,8 +26,21 @@ class ConversationController {
         .exec();
       
       for (const conversation of conversations) {
-        const message = await Message.findById(conversation.last_message).exec();
         let last_message = "";
+        let unread;
+        if(conversation.last_message){
+          const message = await Message.findById(conversation?.last_message).exec();
+          if (message && (message.reader.includes(userId) || message.sender == userId)) unread = false;
+          else unread = true;
+          if(message.sender != userId){
+            if(message.media.length == 0) last_message = message?.content;
+            else last_message = "Image";
+          }
+          else{
+            if(message.media.length == 0) last_message = "You: " + message?.content;
+            else last_message = "You: Image";
+          }
+        }
         const userIds = [];
 
         const friends = await User.findById(conversation.users.filter(item => item != userId)).exec();
@@ -36,16 +49,11 @@ class ConversationController {
           userIds.push(user._id);
         }
         if(!conversation.is_group){
-          if(message.sender != userId){
-            last_message = message.content;
-          }
-          else{
-            last_message = "You: " + message.content;
-          }
-          conversationInfo.push({_id: conversation._id, userIds: userIds, name: friends.full_name, img: friends.profile_picture, lastMsg: last_message});
+          console.log(conversation._id)
+          conversationInfo.push({_id: conversation._id, userIds: userIds, name: friends.full_name, img: friends.profile_picture, lastMsg: last_message, unread: unread, online: friends.online});
         }
         else
-          conversationInfo.push({_id: conversation._id, userIds: userIds, name: conversation.name, img: conversation.avatar, lastMsg: last_message})
+          conversationInfo.push({_id: conversation._id, userIds: userIds, name: conversation.name, img: conversation.avatar, lastMsg: last_message, unread: unread, online: true})
       }
 
       res.json(conversationInfo);

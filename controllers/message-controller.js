@@ -34,7 +34,7 @@ class MessagesController {
         sender: sender_id,
         content,
         media,
-        removed: false
+        removed: false,
       });
   
       // Lưu tin nhắn vào cơ sở dữ liệu
@@ -48,6 +48,20 @@ class MessagesController {
       );
   
       res.json(savedMessage);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async addReader(req, res, next) {
+    const { conversation_id, reader_id } = req.body;
+    try {
+      const conversation = await Conversation.findById(conversation_id).exec();
+      await Messages.findOneAndUpdate(
+      { _id: conversation.last_message },
+      { $push: { reader: reader_id } },
+      { new: true });
+      res.json(true);
     } catch (error) {
       next(error);
     }

@@ -13,6 +13,7 @@ const messageSchema = new Schema({
   content: { type: String },
   media: [{ type: String }],
   removed: { type: Boolean },
+  reader: [{ type: Types.ObjectId, ref: "User" }],
 }, {
   timestamps: { createdAt: "created_at", updatedAt: "updated_at" }
 });

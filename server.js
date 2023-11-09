@@ -1,6 +1,7 @@
 const express = require("express");
 const HttpError = require("./models/http-error");
 const { Server } = require("socket.io");
+const User = require("./models/user");
 
 const session = require("express-session");
 const morgan = require("morgan");
@@ -44,16 +45,35 @@ DBconnect(() => {
   });
   global.onlineUsers = new Map();
   io.on("connection", (socket) => {
+    //console.log(socket);
     global.chatSocket = socket;
-    socket.on("add-user", (userId) => { 
+    
+    socket.on("add-user", async (userId) => { 
       onlineUsers.set(userId, socket.id);
+      onlineUsers.forEach((value, key) => {
+        console.log(`Key: ${key}, Value: ${value}`);
+      });
+      console.log("User connect");
+      await User.findByIdAndUpdate({ _id: userId}, { $set: {online: true}})
+      socket.broadcast.emit("getOnlineUser", {user_id: userId});
+      socket.on("disconnect", async () => { 
+        console.log("User disconnect");
+        onlineUsers.delete(userId);
+        await User.findByIdAndUpdate({ _id: userId}, { $set: {online: false}})
+        socket.broadcast.emit("getOfflineUser", {user_id: userId});
+      });
     });
+    // socket.on("disconnect", async () => { 
+    //   onlineUsers.delete(userId);
+    //   User.findByIdAndUpdate({ _id: userId}, { $set: {online: true}})
+    // });
     socket.on("send-msg", (data) => { 
       const recieveIds = data.recieve_ids;
       recieveIds.forEach((recieveId) => {
         const sendUserSocket = onlineUsers.get(recieveId);
         if (sendUserSocket) {
           socket.to(sendUserSocket).emit("msg-recieve", data);
+          console.log(sendUserSocket + "gui ne");
         }
       });
     });
