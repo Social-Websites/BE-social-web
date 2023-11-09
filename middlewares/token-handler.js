@@ -1,5 +1,6 @@
 const jwt = require("jsonwebtoken");
 const HttpError = require("../models/http-error");
+const User = require("../models/user");
 const access_key = process.env.ACCESS_TOKEN_SECRET;
 const refresh_key = process.env.REFRESH_TOKEN_SECRET;
 const reset_key = process.env.RESET_TOKEN_SECRET;
@@ -40,18 +41,39 @@ const verifyResetToken = (token) => {
   }
 };
 
-const verifyAccessToken = (req, res, next) => {
+const verifyAccessToken = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (authHeader.split(" ")[0] !== "Bearer") throw new Error("Chưa xác thực!");
   try {
-    const token = req.headers.authorization.split(" ")[1];
+    const token = authHeader.split(" ")[1];
     if (!token) {
       throw new Error("Chưa xác thực!");
     }
 
     const decodedToken = jwt.verify(token, access_key);
+
+    const user = await User.findById(decodedToken.id).select("+password");
+
+    const isValidPassword = decodedToken.pw.trim() === user.password.trim();
+
+    if (!isValidPassword) {
+      const cookies = req.cookies;
+      if (cookies?.jwt) {
+        res.clearCookie("jwt", {
+          httpOnly: true,
+          sameSite: "None",
+          secure: true,
+        });
+      }
+      const error = new HttpError("Phiên hoạt động hết hạn!", 401);
+      return next(error);
+    }
+
     req.userData = decodedToken;
     next();
   } catch (err) {
-    const error = new HttpError("Có lỗi khi xác thực!", 401);
+    console.log("1---access---------------------: ", err);
+    const error = new HttpError("Có lỗi khi xác thực!", 500);
     return next(error);
   }
 };

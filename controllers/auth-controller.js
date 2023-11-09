@@ -2,14 +2,7 @@ const HttpError = require("../models/http-error");
 const User = require("../models/user");
 const bcrypt = require("bcrypt");
 const { validationResult } = require("express-validator");
-const {
-  generateToken,
-  verifyRefreshToken,
-  generateResetToken,
-  generateOtpToken,
-  verifyResetToken,
-  verifyOtpToken,
-} = require("../middlewares/token-handler");
+const tokenHandler = require("../middlewares/token-handler");
 const sendMail = require("../util/email");
 const removeVietnameseTones = require("../util/removeVietnameseTones");
 const generateOTP = require("../util/otp-generator");
@@ -41,7 +34,7 @@ const getOtpSignUp = async (req, res, next) => {
   let otpToken;
 
   try {
-    otpToken = generateOtpToken(username, OTP);
+    otpToken = tokenHandler.generateOtpToken(username, OTP);
     const message = `Mã OTP để xác thực email đăng ký người dùng là: ${OTP}`;
     const subject = `Hoàn tất xác thực đăng ký người dùng`;
     await sendMail({ mailto: email, subject: subject, emailMessage: message });
@@ -70,21 +63,16 @@ const signUp = async (req, res, next) => {
   }
   const { otp, otpToken, email, fullname, username, password } = req.body;
 
-  const decodedToken = verifyOtpToken(otpToken);
+  const decodedToken = tokenHandler.verifyOtpToken(otpToken);
   if (!decodedToken) {
     const error = new HttpError("Có lỗi khi xác thực!", 403);
     return next(error);
   }
 
-  console.log(decodedToken.otp);
-  console.log(otp);
-
   if (
     decodedToken.otp.toString() !== otp.trim() ||
     decodedToken.username.trim() !== username.trim()
   ) {
-    console.log(decodedToken.username);
-    console.log(username);
     const error = new HttpError("Xác thực không thành công!", 403);
     return next(error);
   }
@@ -147,7 +135,10 @@ const login = async (req, res, next) => {
 
   let existingUser;
   try {
-    existingUser = await User.findOne({ username: username, admin: false });
+    existingUser = await User.findOne({
+      username: username,
+      admin: false,
+    }).select("+password");
   } catch (err) {
     const error = new HttpError("Có lỗi xảy ra, vui lòng thử lại sau!", 500);
     return next(error);
@@ -177,8 +168,8 @@ const login = async (req, res, next) => {
   let accessToken;
   let refreshToken;
   try {
-    accessToken = generateToken(existingUser, "access", "6h");
-    refreshToken = generateToken(existingUser, "refresh", "7d");
+    accessToken = tokenHandler.generateToken(existingUser, "access", "7h");
+    refreshToken = tokenHandler.generateToken(existingUser, "refresh", "7d");
   } catch (err) {
     const error = new HttpError(
       "Có lỗi trong quá trình đăng nhập, vui lòng thử lại sau!",
@@ -206,21 +197,23 @@ const refresh = async (req, res, next) => {
   }
 
   const refreshToken = cookies.jwt;
-  const decodedToken = verifyRefreshToken(refreshToken);
+  const decodedToken = tokenHandler.verifyRefreshToken(refreshToken);
   if (!decodedToken) {
     const error = new HttpError("Có lỗi khi xác thực!", 403);
     return next(error);
   }
   let accessToken;
   try {
-    const existingUser = await User.findById(decodedToken.id);
+    const existingUser = await User.findById(decodedToken.id).select(
+      "+password"
+    );
 
     if (!existingUser) {
       const error = new HttpError("Không thể xác thực!", 401);
       return next(error);
     }
 
-    accessToken = generateToken(existingUser, "access", "7h");
+    accessToken = tokenHandler.generateToken(existingUser, "access", "7h");
   } catch (err) {
     const error = new HttpError("Có lỗi xảy ra, vui lòng thử lại sau!", 500);
     return next(error);
@@ -249,6 +242,7 @@ const sendResetVerification = async (req, res, next) => {
       admin: false,
     });
   } catch (err) {
+    console.log("1-----------: ", err);
     const error = new HttpError("Có lỗi xảy ra, vui lòng thử lại sau!", 500);
     return next(error);
   }
@@ -260,17 +254,18 @@ const sendResetVerification = async (req, res, next) => {
 
   let resetToken;
   try {
-    resetToken = generateResetToken(existingUser._id);
+    resetToken = tokenHandler.generateResetToken(existingUser._id);
     existingUser.reset_token = resetToken;
     await existingUser.save();
   } catch (err) {
+    console.log("2------------: ", err);
     const error = new HttpError("Có lỗi xảy ra, vui lòng thử lại sau!", 500);
     return next(error);
   }
 
   const resetUrl = `${req.get("origin")}/accounts/reset-password/${resetToken}`;
   const email = existingUser.user_info.email;
-  console.log(email);
+
   const message = `Nhấn vào đường dẫn dưới đây để có thể đặt lại mật khẩu:\n\n${resetUrl}\n\nVui lòng không được chia sẻ đường dẫn này cho bất kì ai!`;
   const subject = `Yêu cầu đặt lại mật khẩu của người dùng ${existingUser.full_name}`;
   try {
@@ -289,7 +284,7 @@ const sendResetVerification = async (req, res, next) => {
 const verifyResetLink = async (req, res, next) => {
   const token = req.params.token;
 
-  const decodedToken = verifyResetToken(token);
+  const decodedToken = tokenHandler.verifyResetToken(token);
   if (!decodedToken) {
     const error = new HttpError("Đường dẫn hết hạn!", 403);
     return next(error);
@@ -323,7 +318,7 @@ const verifyResetLink = async (req, res, next) => {
 const resetPassword = async (req, res, next) => {
   const { resetToken, password } = req.body;
 
-  const decodedToken = verifyResetToken(resetToken);
+  const decodedToken = tokenHandler.verifyResetToken(resetToken);
   if (!decodedToken) {
     const error = new HttpError("Có lỗi xác thực!", 403);
     return next(error);

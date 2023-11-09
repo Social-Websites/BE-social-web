@@ -7,6 +7,9 @@ const router = express.Router();
 //Cấp lại access token
 router.get("/refresh", AuthController.refresh);
 
+router.post("/login", AuthController.login);
+router.get("/logout", AuthController.logout);
+
 //Quên mật khẩu
 router.post("/forgot-password", AuthController.sendResetVerification);
 router.get("/reset-password/:token", AuthController.verifyResetLink);
@@ -26,7 +29,5 @@ router.post(
   ],
   AuthController.signUp
 );
-router.post("/login", AuthController.login);
-router.post("/logout", AuthController.logout);
 
 module.exports = router;
