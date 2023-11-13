@@ -63,10 +63,6 @@ DBconnect(() => {
         socket.broadcast.emit("getOfflineUser", {user_id: userId});
       });
     });
-    // socket.on("disconnect", async () => { 
-    //   onlineUsers.delete(userId);
-    //   User.findByIdAndUpdate({ _id: userId}, { $set: {online: true}})
-    // });
     socket.on("send-msg", (data) => { 
       const recieveIds = data.recieve_ids;
       recieveIds.forEach((recieveId) => {

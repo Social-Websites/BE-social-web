@@ -10,5 +10,6 @@ router.use(tokenHandler.verifyAccessToken);
 
 router.get("/auth-user", UsersController.getUser);
 router.get("/:username", UsersController.getUserByUsername);
+router.get("/search", UsersController.searchUsers);
 
 module.exports = router;
