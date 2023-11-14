@@ -43,6 +43,7 @@ const verifyResetToken = (token) => {
 
 const verifyAccessToken = async (req, res, next) => {
   const authHeader = req.headers.authorization;
+  if(!authHeader) throw new Error("Chưa xác thực!");
   if (authHeader.split(" ")[0] !== "Bearer") throw new Error("Chưa xác thực!");
   try {
     const token = authHeader.split(" ")[1];
