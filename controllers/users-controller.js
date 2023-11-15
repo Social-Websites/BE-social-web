@@ -30,5 +30,28 @@ const getUserByUsername = async (req, res, next) => {
   }
 };
 
+const searchUsers = async (req, res, next) => {
+  const searchText = req.query.searchText;
+  console.log(searchText);
+  try {
+    const regex = new RegExp(searchText, "i");
+    if(searchText){
+      const users = await User.find({
+        $or: [
+          { username: regex },
+          { full_name: regex }
+        ]
+      });
+      res.json(users);
+    }
+    else{
+      res.json([]);
+    }
+    
+  } catch (error) {
+    return next(error + searchText);
+  }
+}
+exports.searchUsers = searchUsers;
 exports.getUser = getUser;
 exports.getUserByUsername = getUserByUsername;
