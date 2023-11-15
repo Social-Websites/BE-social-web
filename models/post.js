@@ -6,17 +6,18 @@ const { Schema, Types } = mongoose;
 const postSchema = new Schema(
   {
     post_url: { type: String },
-    group_id: { type: Types.ObjectId, ref: "Group" },
-    user_id: { type: Types.ObjectId, required: true, ref: "User" },
+    group: { type: Types.ObjectId, ref: "Group" },
+    creator: { type: Types.ObjectId, required: true, ref: "User" },
     content: { type: String },
     media: [{ type: String }],
     visibility: {
       type: String,
       enum: ["PUBLIC", "GROUP", "FRIENDS", "PRIVATE"],
+      default: "PUBLIC",
     },
     reacts: [
       {
-        user_id: { type: Types.ObjectId, required: true, ref: "User" },
+        user: { type: Types.ObjectId, required: true, ref: "User" },
         emoji: {
           type: String,
           enum: ["LIKE", "DISLIKE", "HAHA", "HEART", "WOW", "SAD", "ANGRY"],

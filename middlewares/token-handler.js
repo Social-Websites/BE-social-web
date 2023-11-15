@@ -43,11 +43,15 @@ const verifyResetToken = (token) => {
 
 const verifyAccessToken = async (req, res, next) => {
   const authHeader = req.headers.authorization;
-  if (authHeader.split(" ")[0] !== "Bearer") throw new Error("Chưa xác thực!");
+  if (!authHeader || authHeader.split(" ")[0] !== "Bearer") {
+    const error = new HttpError("Chưa xác thực!", 500);
+    return next(error);
+  }
   try {
     const token = authHeader.split(" ")[1];
     if (!token) {
-      throw new Error("Chưa xác thực!");
+      const error = new HttpError("Chưa xác thực!", 500);
+      return next(error);
     }
 
     const decodedToken = jwt.verify(token, access_key);
@@ -59,6 +63,7 @@ const verifyAccessToken = async (req, res, next) => {
     if (!isValidPassword) {
       const cookies = req.cookies;
       if (cookies?.jwt) {
+        req.cookies = null;
         res.clearCookie("jwt", {
           httpOnly: true,
           sameSite: "None",
