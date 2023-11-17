@@ -30,4 +30,6 @@ router.post(
   PostController.createPost
 );
 
+router.delete("/:id", PostController.deletePost);
+
 module.exports = router;

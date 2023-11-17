@@ -34,7 +34,7 @@ const userSchema = new Schema(
     full_name: { type: String, required: true },
     search_keyword: { type: String, required: true },
     user_info: userInfoSchema,
-    profile_picture: { type: String, trim: true },
+    profile_picture: { type: String, trim: true, default: "" },
     posts: [{ type: Types.ObjectId, ref: "Post" }],
     friend_requests: [{ type: Types.ObjectId, ref: "User" }],
     friends: [{ type: Types.ObjectId, ref: "User" }],

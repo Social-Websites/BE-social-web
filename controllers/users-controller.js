@@ -5,7 +5,11 @@ const getUser = async (req, res, next) => {
   const userId = req.userData.id;
   console.log(userId); // ID của người dùng
   try {
-    const user = await User.findById(userId);
+    const user = await User.findById(userId, {
+      username: 1,
+      profile_picture: 1,
+      full_name: 1,
+    });
     res.json({ user: user });
   } catch (errors) {
     const error = new HttpError(
@@ -35,23 +39,18 @@ const searchUsers = async (req, res, next) => {
   console.log(searchText);
   try {
     const regex = new RegExp(searchText, "i");
-    if(searchText){
+    if (searchText) {
       const users = await User.find({
-        $or: [
-          { username: regex },
-          { full_name: regex }
-        ]
+        $or: [{ username: regex }, { full_name: regex }],
       });
       res.json(users);
-    }
-    else{
+    } else {
       res.json([]);
     }
-    
   } catch (error) {
     return next(error + searchText);
   }
-}
+};
 exports.searchUsers = searchUsers;
 exports.getUser = getUser;
 exports.getUserByUsername = getUserByUsername;

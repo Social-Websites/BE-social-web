@@ -26,6 +26,7 @@ const postSchema = new Schema(
     ],
     comments: [{ type: Types.ObjectId, ref: "Comment" }],
     has_read: [{ type: Types.ObjectId, ref: "User" }],
+    edit_at: { type: Date },
     shared_by: { type: Types.ObjectId, ref: "User" },
     original_post: { type: Types.ObjectId, ref: "Post" },
     deleted_by: { type: String, enum: ["ADMIN", "USER"] },
