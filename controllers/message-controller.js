@@ -6,17 +6,20 @@ const Conversation = require("../models/conversation");
 class MessagesController {
   async getMessages(req, res, next) {
     const conversationId = req.params.conversationId;
+    const skip = parseInt(req.query.skip) || 0; // Số lượng tin nhắn đã lấy trước đó, mặc định là 0
     const messagesInfo = [];
     try{
       const messages = await Messages.find({conversation_id: conversationId})
-      .sort({ createdAt: 1 })
+      .sort({ created_at: -1 })
+      .skip(skip) // Bỏ qua số lượng tin nhắn đã lấy trước đó
+      .limit(20) // Giới hạn 20 tin nhắn
       .exec();
 
       for (const message of messages) {
         const sender = await User.findById(message.sender).exec();
-        messagesInfo.push({_id: message._id, sender_id:message.sender, name: sender.full_name, img: sender.profile_picture, content: message.content, media: message.media});
+        messagesInfo.push({_id: message._id, sender_id:message.sender, name: sender.full_name, img: sender.profile_picture, content: message.content, media: message.media, createAt: message.created_at});
       }
-      res.json(messagesInfo);
+      res.json(messagesInfo.reverse());
     }
      catch (error) {
       next(error);
