@@ -11,16 +11,26 @@ const createPost = async (req, res, next) => {
   }
   const userId = req.userData.id;
 
-  const user = await User.findById(userId);
-  if (!user) {
-    const error = new HttpError("Không tìm thấy user!", 404);
+  let user;
+  try {
+    user = await User.findById(userId);
+    if (!user) {
+      const error = new HttpError("Không tìm thấy user!", 404);
+      return next(error);
+    }
+  } catch (err) {
+    console.log("Bài viết 0===============: ", err);
+    const error = new HttpError(
+      "Có lỗi khi tạo bài viết, vui lòng thử lại!",
+      500
+    );
     return next(error);
   }
 
   const { title, urlStrings } = req.body;
   const newPost = new Post({
     creator: userId,
-    content: title ? title : "",
+    content: title,
     media: urlStrings,
   });
 
@@ -30,6 +40,7 @@ const createPost = async (req, res, next) => {
     await newPost.save({ session: sess });
     user.posts.push(newPost);
     await user.save({ session: sess });
+    await newPost.populate("creator", "username profile_picture");
     await sess.commitTransaction();
   } catch (err) {
     console.log("Bài viết 1===============: ", err);
@@ -39,7 +50,68 @@ const createPost = async (req, res, next) => {
     );
     return next(error);
   }
-  res.status(201).json({ message: "Tạo bài viết mới thành công!" });
+
+  res.status(201).json({ post: newPost });
+};
+
+const reactPost = async (req, res, next) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return next(new HttpError("Giá trị nhập vào không hợp lệ!", 422));
+  }
+  const userId = req.userData.id;
+  const postId = req.params.postId;
+  const emoji = req.body.emoji;
+
+  let message;
+
+  try {
+    const user = await User.findById(userId);
+    if (!user) {
+      const error = new HttpError("Không tìm thấy user!", 404);
+      return next(error);
+    }
+
+    const post = await Post.findById(postId, { reacts: 1 });
+    if (!post) {
+      const error = new HttpError(
+        "Không tìm thấy post với id được cung cấp!",
+        404
+      );
+      return next(error);
+    }
+
+    console.log(post);
+
+    const existingReactIndex = post.reacts.findIndex(
+      (react) => react.user.toString() === user._id.toString()
+    );
+
+    if (existingReactIndex === -1) {
+      // Nếu chưa tương tác, thêm một react mới
+      post.reacts.push({ user: userId, emoji: emoji });
+      message = "Like bài viết thành công!";
+    } else {
+      // Nếu đã tương tác, kiểm tra emoji
+      if (post.reacts[existingReactIndex].emoji === emoji) {
+        // Nếu emoji giống nhau, hủy tương tác
+        post.reacts.splice(existingReactIndex, 1);
+        message = "Hủy emoji thành công!";
+      } else {
+        // Nếu emoji khác nhau, cập nhật emoji
+        post.reacts[existingReactIndex].emoji = emoji;
+        message = "Đổi emoji thành công!";
+      }
+    }
+
+    await post.save({ timestamps: false });
+  } catch (err) {
+    console.log("React 1===============: ", err);
+    const error = new HttpError("Có lỗi khi tương tác, vui lòng thử lại!", 500);
+    return next(error);
+  }
+
+  res.status(200).json({ message: message });
 };
 
 const deletePost = async (req, res, next) => {
@@ -151,3 +223,4 @@ const getHomePosts = async (req, res, next) => {
 exports.createPost = createPost;
 exports.getHomePosts = getHomePosts;
 exports.deletePost = deletePost;
+exports.reactPost = reactPost;

@@ -15,10 +15,10 @@ const commentSchema = new Schema(
     media: [{ type: String }],
     reacts: [
       {
-        user_id: { type: Types.ObjectId, required: true, ref: "User" },
+        user: { type: Types.ObjectId, required: true, ref: "User" },
         emoji: {
           type: String,
-          enum: ["LIKE", "DISLIKE", "HAHA", "HEART", "WOW", "SAD", "ANGRY"],
+          enum: ["LIKE", "HAHA", "LOVE", "WOW", "SAD", "ANGRY"],
         },
       },
     ],

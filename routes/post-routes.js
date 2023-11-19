@@ -30,6 +30,12 @@ router.post(
   PostController.createPost
 );
 
+router.patch(
+  "/react/:postId",
+  [check("emoji").not().isEmpty()],
+  PostController.reactPost
+);
+
 router.delete("/:id", PostController.deletePost);
 
 module.exports = router;
