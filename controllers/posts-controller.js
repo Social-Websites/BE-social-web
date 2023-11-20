@@ -200,11 +200,16 @@ const getHomePosts = async (req, res, next) => {
         const { creator } = post;
         // Loại bỏ trường không mong muốn từ creator trong bản sao
         const { _id, username, profile_picture } = creator;
+        // Kiểm tra xem user có react (like) bài viết hay không
+        const is_user_like = post.reacts.some(
+          (react) => react.user.toString() === userId
+        );
 
         // Tạo một bản sao của post và cập nhật trường creator
         const postCopy = {
           ...post._doc,
           creator: { _id, username, profile_picture },
+          is_user_like: is_user_like,
         };
         return postCopy;
       });
