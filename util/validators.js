@@ -1,3 +1,5 @@
+const {check} = require('express-validator');
+
 exports.validateEmail = (email) => {
   return String(email)
     .toLowerCase()
@@ -10,3 +12,12 @@ exports.validateLength = (text, min, max) => {
   }
   return true;
 };
+
+let validatePagination = () => {
+  return [ 
+    check('page').isInt({ min: 1 }).withMessage('Page phải là số nguyên dương >= 1'),
+    check('limit').isInt({ min: 1 }).withMessage('Limit phải là số nguyên dương >= 1'),
+  ]; 
+}
+
+module.exports = {validatePagination};
