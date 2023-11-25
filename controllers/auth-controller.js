@@ -1,6 +1,5 @@
 const HttpError = require("../models/http-error");
 const User = require("../models/user");
-const bcrypt = require("bcrypt");
 const { validationResult } = require("express-validator");
 const tokenHandler = require("../middlewares/token-handler");
 const sendMail = require("../util/email");
@@ -95,21 +94,9 @@ const signUp = async (req, res, next) => {
     return next(error);
   }
 
-  const saltRounds = 10;
-  let hashPass;
-  try {
-    hashPass = await bcrypt.hash(password, saltRounds);
-  } catch (err) {
-    const error = new HttpError(
-      "Có lỗi trong quá trình đăng ký, vui lòng thử lại sau!",
-      500
-    );
-    return next(error);
-  }
-
   const newUser = new User({
     username: username,
-    password: hashPass,
+    password: password,
     full_name: fullname,
     user_info: {
       email: email,
@@ -151,7 +138,7 @@ const login = async (req, res, next) => {
 
   let isValidPassword;
   try {
-    isValidPassword = await bcrypt.compare(password, existingUser.password);
+    isValidPassword = await existingUser.comparePassword(password);
   } catch (err) {
     const error = new HttpError(
       "Có lỗi khi đăng nhập, vui lòng thử lại sau!",
@@ -310,9 +297,7 @@ const verifyResetLink = async (req, res, next) => {
     return next(error);
   }
 
-  res.json({
-    message: "Đường dẫn đặt lại mật khẩu hợp lệ!",
-  });
+  res.json({ message: "Đường dẫn đặt lại mật khẩu hợp lệ!" });
 };
 
 const resetPassword = async (req, res, next) => {
@@ -365,9 +350,7 @@ const resetPassword = async (req, res, next) => {
     return next(error);
   }
 
-  res.json({
-    message: "Đặt lại mật khẩu thành công!",
-  });
+  res.json({ message: "Đặt lại mật khẩu thành công!" });
 };
 
 exports.getOtpSignUp = getOtpSignUp;

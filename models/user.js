@@ -1,5 +1,7 @@
 const mongoose = require("mongoose");
 const uniqueValidator = require("mongoose-unique-validator");
+const bcrypt = require("bcrypt");
+const HttpError = require("./http-error");
 
 const { Schema, Types } = mongoose;
 
@@ -15,7 +17,16 @@ const userInfoSchema = new Schema(
     high_school: { type: String },
     college: { type: String },
     current_city: { type: String },
-    home_town: { type: String },
+    hometown: { type: String },
+  },
+  { _id: false }
+);
+
+const userSettingSchema = new Schema(
+  {
+    notification_setting: { type: String },
+    privacy_setting: { type: String },
+    theme: { type: String },
   },
   { _id: false }
 );
@@ -46,12 +57,42 @@ const userSchema = new Schema(
     block_list: [{ type: Types.ObjectId, ref: "User" }],
     profile_url: { type: String, trim: true },
     admin: { type: Boolean, required: true, default: false },
-    user_setting: { type: Types.ObjectId, ref: "User_setting" },
+    user_setting: userSettingSchema,
     reset_token: { type: String },
   },
   { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } }
 );
 
+//Plugins, methods, middlewares, statics, query helpers
 userSchema.plugin(uniqueValidator);
+
+userSchema.methods.comparePassword = async function (candidatePassword, next) {
+  try {
+    const isValidPassword = await bcrypt.compare(
+      candidatePassword,
+      this.password
+    );
+    return isValidPassword;
+  } catch (err) {
+    return next(err);
+  }
+};
+
+userSchema.pre("save", { document: true, query: false }, async function (next) {
+  if (!this.isNew || !this.isModified("password")) return next();
+
+  try {
+    const saltRounds = 10;
+    const hashedPass = await bcrypt.hash(this.password, saltRounds);
+    this.password = hashedPass;
+    next();
+  } catch (err) {
+    const error = new HttpError(
+      "Có lỗi trong quá trình đăng ký, vui lòng thử lại sau!",
+      500
+    );
+    return next(error);
+  }
+});
 
 module.exports = mongoose.model("User", userSchema);

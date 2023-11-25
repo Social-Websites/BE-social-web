@@ -5,7 +5,6 @@ const { Schema, Types } = mongoose;
 
 const postSchema = new Schema(
   {
-    post_url: { type: String },
     group: { type: Types.ObjectId, ref: "Group" },
     creator: { type: Types.ObjectId, required: true, ref: "User" },
     content: { type: String },

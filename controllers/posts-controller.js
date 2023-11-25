@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const HttpError = require("../models/http-error");
 const Post = require("../models/post");
 const User = require("../models/user");
+const Comment = require("../models/comment");
 const { validationResult } = require("express-validator");
 
 const createPost = async (req, res, next) => {
@@ -81,8 +82,6 @@ const reactPost = async (req, res, next) => {
       return next(error);
     }
 
-    console.log(post);
-
     const existingReactIndex = post.reacts.findIndex(
       (react) => react.user.toString() === user._id.toString()
     );
@@ -116,7 +115,7 @@ const reactPost = async (req, res, next) => {
 
 const deletePost = async (req, res, next) => {
   const userId = req.userData.id;
-  const postId = req.params.id;
+  const postId = req.params.postId;
 
   let post;
   try {
@@ -163,8 +162,8 @@ const deletePost = async (req, res, next) => {
 
 const getHomePosts = async (req, res, next) => {
   const userId = req.userData.id;
-  const page = parseInt(req.query.page) || 1; // Trang hiện tại (mặc định là 1)
-  const limit = parseInt(req.query.limit) || 10; // Số lượng bài viết mỗi trang (mặc định là 10)
+  const page = Math.max(1, parseInt(req.query.page)) || 1; // Trang hiện tại (mặc định là 1)
+  const limit = Math.max(10, parseInt(req.query.limit)) || 10; // Số lượng bài viết mỗi trang (mặc định là 10)
 
   try {
     const user = await User.findById(userId).select("friends block_list");
@@ -179,40 +178,88 @@ const getHomePosts = async (req, res, next) => {
     const blockListIds = user.block_list.map((blockedUser) => blockedUser._id);
 
     // Lấy danh sách bài viết theo các điều kiện
-    const posts = await Post.find({
-      $and: [
-        { creator: { $in: [...friendIds, userId] } }, // User là bạn bè
-        { creator: { $nin: blockListIds } }, // User không nằm trong block_list của mình
-      ],
-    })
-      .populate("creator", "username profile_picture block_list") // Populate thông tin của người tạo bài viết chỉ với trường username
-      // .populate(
-      //   "creator.block_list",
-      //   "_id" // Chỉ lấy trường _id trong block_list của người tạo bài viết
-      // )
-      .sort({ updated_at: -1 }) // Sắp xếp theo thời gian giảm dần
+    const posts = await Post.aggregate()
+      .match({
+        creator: {
+          $in: [
+            ...friendIds.map((id) => new mongoose.Types.ObjectId(id)),
+            new mongoose.Types.ObjectId(userId),
+          ],
+          $nin: blockListIds.map((id) => new mongoose.Types.ObjectId(id)),
+        },
+      })
+      .lookup({
+        from: "users",
+        localField: "creator",
+        foreignField: "_id",
+        as: "creator",
+      })
+      .unwind("creator")
+      .addFields({
+        is_user_liked: {
+          $in: [new mongoose.Types.ObjectId(userId), "$reacts.user"],
+        },
+        reacts_count: { $size: "$reacts" },
+        comments_count: { $size: "$comments" },
+      })
+      .project({
+        creator: { _id: 1, username: 1, profile_picture: 1, block_list: 1 },
+        is_user_liked: 1,
+        reacts_count: 1,
+        commentsCount: 1,
+        updated_at: 1,
+        created_at: 1,
+        media: 1,
+        content: 1,
+        has_read: 1,
+        edit_at: 1,
+        shared_by: 1,
+        original_post: 1,
+      })
+      .sort({ updated_at: -1 })
       .skip((page - 1) * limit)
       .limit(limit);
 
-    const filteredPosts = posts
-      .filter((post) => !post.creator.block_list.includes(userId))
-      .map((post) => {
-        const { creator } = post;
-        // Loại bỏ trường không mong muốn từ creator trong bản sao
-        const { _id, username, profile_picture } = creator;
-        // Kiểm tra xem user có react (like) bài viết hay không
-        const is_user_like = post.reacts.some(
-          (react) => react.user.toString() === userId
-        );
+    // {
+    //   $lookup: {
+    //     from: "users", // Tên collection nguồn
+    //     localField: "creator",
+    //     foreignField: "_id",
+    //     as: "creator",
+    //   },
+    // },
+    // {
+    //   $unwind: "$creator",
+    // },
+    // {
+    //   $addFields: {
+    //     is_user_like: {
+    //       $in: [new mongoose.Types.ObjectId(userId), "$reacts.user"],
+    //     },
+    //     reactsCount: { $size: "$reacts" },
+    //   },
+    // },
+    // {
+    //   $project: {
+    //     creator: { _id: 1, username: 1, profile_picture: 1, block_list: 1 },
+    //     is_user_like: 1,
+    //     reactsCount: 1,
+    //     updated_at: 1,
+    //   },
+    // },
+    // {
+    //   $sort: { updated_at: -1 },
+    // },
+    // {
+    //   $skip: (page - 1) * limit,
+    // },
+    // {
+    //   $limit: limit,
+    // },
 
-        // Tạo một bản sao của post và cập nhật trường creator
-        const postCopy = {
-          ...post._doc,
-          creator: { _id, username, profile_picture },
-          is_user_like: is_user_like,
-        };
-        return postCopy;
-      });
+    const filteredPosts = posts.filter(
+      (post) => !post.creator.block_list.includes(userId)
+    );
 
     res.status(200).json({ posts: filteredPosts });
   } catch (err) {
@@ -225,7 +272,178 @@ const getHomePosts = async (req, res, next) => {
   }
 };
 
+const getPostComments = async (req, res, next) => {
+  const userId = req.userData.id;
+  const postId = req.params.postId;
+  const page = Math.max(1, parseInt(req.query.page)) || 1; // Trang hiện tại (mặc định là 1)
+  const limit = Math.max(30, parseInt(req.query.limit)) || 30; // Số lượng comments mỗi lần (mặc định là 30)
+
+  try {
+    const user = await User.findById(userId).select("block_list");
+
+    if (!user) {
+      const error = new HttpError("Không tìm thấy người dùng!", 404);
+      return next(error);
+    }
+
+    // Lấy danh sách ID của block_list
+    const blockListIds = user.block_list.map((blockedUser) => blockedUser._id);
+
+    // Lấy danh sách bài viết theo các điều kiện
+    const comments = await Comment.aggregate()
+      .match({
+        post: new mongoose.Types.ObjectId(postId),
+        user: {
+          $nin: blockListIds.map((id) => new mongoose.Types.ObjectId(id)),
+        },
+        cmt_level: 1,
+      })
+      .lookup({
+        from: "users",
+        localField: "user",
+        foreignField: "_id",
+        as: "user",
+      })
+      .unwind("user")
+      .addFields({ relate_cmts_count: { $size: "$relate_cmts" } })
+      .project({
+        user: { _id: 1, username: 1, profile_picture: 1, block_list: 1 },
+        relate_cmts_count: 1,
+        mother_cmt: 1,
+        reply_to: 1,
+        cmt_level: 1,
+        media: 1,
+        comment: 1,
+        created_at: 1,
+      })
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    const filteredComments = comments.filter(
+      (comment) => !comment.user.block_list.includes(userId)
+    );
+
+    res.status(200).json({ comments: filteredComments });
+  } catch (err) {
+    console.log("Comment 2===============: ", err);
+    const error = new HttpError(
+      "Có lỗi khi lấy comments, vui lòng thử lại!",
+      500
+    );
+    return next(error);
+  }
+};
+
+const comment = async (req, res, next) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return next(new HttpError("Giá trị nhập vào không hợp lệ!", 422));
+  }
+  const userId = req.userData.id;
+  const { postId, comment, urlStrings, reply_to } = req.body;
+
+  try {
+    const user = await User.findById(userId);
+    if (!user) {
+      const error = new HttpError("Không tìm thấy user!", 404);
+      return next(error);
+    }
+
+    const post = await Post.findById(postId, { comments: 1 });
+    if (!post) {
+      const error = new HttpError("Không tìm thấy post!", 404);
+      return next(error);
+    }
+
+    const newCommentData = {
+      user: userId,
+      post: postId,
+    };
+
+    // Kiểm tra và thêm các trường optional nếu chúng tồn tại
+    if (comment) newCommentData.comment = comment;
+    if (urlStrings) newCommentData.media = urlStrings;
+    if (reply_to) newCommentData.reply_to = reply_to;
+
+    const newComment = new Comment(newCommentData);
+
+    const sess = await mongoose.startSession();
+    sess.startTransaction();
+    await newComment.save({ session: sess });
+    post.comments.push(newComment);
+    await post.save({ session: sess });
+    await newComment.populate("user", "username profile_picture");
+    await sess.commitTransaction();
+
+    res.status(201).json({ comment: newComment });
+  } catch (err) {
+    console.log("Bài viết 1===============: ", err);
+    const error = new HttpError(
+      "Có lỗi khi gửi comment, vui lòng thử lại!",
+      500
+    );
+    return next(error);
+  }
+};
+
+const deleteComment = async (req, res, next) => {
+  const userId = req.userData.id;
+  const commentId = req.params.commentId;
+
+  try {
+    const comment = await Comment.findById(commentId, {
+      user: 1,
+      post: 1,
+      cmt_level: 1,
+      mother_cmt: 1,
+    });
+
+    console.log(comment);
+    if (!comment) {
+      const error = new HttpError(
+        "Không tìm thấy comment từ id cung cấp!",
+        404
+      );
+      return next(error);
+    }
+
+    if (comment.user.toString() !== userId) {
+      const error = new HttpError("Người dùng không có quyền xóa!", 403);
+      return next(error);
+    }
+    const sess = await mongoose.startSession();
+    sess.startTransaction();
+    await comment.deleteOne({ session: sess });
+    await Post.updateOne(
+      { _id: comment.post },
+      { $pull: { comments: comment._id } },
+      { session: sess }
+    );
+
+    if (comment.cmt_level > 1) {
+      await Comment.updateOne(
+        { _id: comment.mother_cmt },
+        { $pull: { relate_cmts: comment._id } },
+        { session: sess }
+      );
+    }
+
+    await sess.commitTransaction();
+  } catch (err) {
+    console.log("Comment xóa 2===============: ", err);
+    const error = new HttpError(
+      "Có lỗi khi xóa bài viết, vui lòng thử lại!",
+      500
+    );
+    return next(error);
+  }
+  res.status(200).json({ message: "Xóa comment thành công!" });
+};
+
 exports.createPost = createPost;
 exports.getHomePosts = getHomePosts;
+exports.getPostComments = getPostComments;
 exports.deletePost = deletePost;
+exports.deleteComment = deleteComment;
 exports.reactPost = reactPost;
+exports.comment = comment;
