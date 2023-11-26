@@ -42,7 +42,7 @@ const searchUsers = async (req, res, next) => {
     if (searchText) {
       const users = await User.find({
         $or: [{ username: regex }, { full_name: regex }],
-      });
+      }).limit(50); // Giới hạn trả về 50 kết quả
       res.json(users);
     } else {
       res.json([]);
