@@ -9,6 +9,7 @@ const router = express.Router();
 router.use(tokenHandler.verifyAccessToken);
 
 router.get("/", PostController.getHomePosts);
+router.get("/:username", PostController.getUserPosts);
 router.get("/:postId/comments", PostController.getPostComments);
 
 router.post(

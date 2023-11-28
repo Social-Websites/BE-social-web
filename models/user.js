@@ -7,7 +7,7 @@ const { Schema, Types } = mongoose;
 
 const userInfoSchema = new Schema(
   {
-    bio: { type: String },
+    bio: { type: String, default: "", maxLength: 150 },
     date_of_birth: { type: Date },
     gender: { type: Boolean },
     email: { type: String, required: true, unique: true, trim: true },
@@ -48,6 +48,7 @@ const userSchema = new Schema(
     profile_picture: { type: String, trim: true, default: "" },
     posts: [{ type: Types.ObjectId, ref: "Post" }],
     friend_requests: [{ type: Types.ObjectId, ref: "User" }],
+    friend_requests_sent: [{ type: Types.ObjectId, ref: "User" }],
     friends: [{ type: Types.ObjectId, ref: "User" }],
     conversations: [{ type: Types.ObjectId, ref: "Conversation" }],
     online: { type: Boolean },
@@ -55,7 +56,6 @@ const userSchema = new Schema(
     ban: { type: Boolean, required: true, default: false },
     self_lock: { type: Boolean, required: true, default: false },
     block_list: [{ type: Types.ObjectId, ref: "User" }],
-    profile_url: { type: String, trim: true },
     admin: { type: Boolean, required: true, default: false },
     user_setting: userSettingSchema,
     reset_token: { type: String },

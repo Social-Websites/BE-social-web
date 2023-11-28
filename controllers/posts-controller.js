@@ -206,7 +206,7 @@ const getHomePosts = async (req, res, next) => {
         creator: { _id: 1, username: 1, profile_picture: 1, block_list: 1 },
         is_user_liked: 1,
         reacts_count: 1,
-        commentsCount: 1,
+        comments_count: 1,
         updated_at: 1,
         created_at: 1,
         media: 1,
@@ -264,6 +264,64 @@ const getHomePosts = async (req, res, next) => {
     res.status(200).json({ posts: filteredPosts });
   } catch (err) {
     console.log("Bài viết 2===============: ", err);
+    const error = new HttpError(
+      "Có lỗi khi lấy bài viết, vui lòng thử lại!",
+      500
+    );
+    return next(error);
+  }
+};
+
+const getUserPosts = async (req, res, next) => {
+  const userId = req.userData.id;
+  const username = req.params.username;
+  const page = Math.max(1, parseInt(req.query.page)) || 1; // Trang hiện tại (mặc định là 1)
+  const limit = Math.max(15, parseInt(req.query.limit)) || 15; // Số lượng bài viết mỗi trang (mặc định là 15)
+
+  try {
+    const user = await User.findOne({ username: username }).select(
+      "friends block_list posts"
+    );
+
+    if (!user) {
+      const error = new HttpError("Không tìm thấy người dùng!", 404);
+      return next(error);
+    }
+
+    // Lấy danh sách ID của bạn bè và block_list
+    const isFriend = user.friends.includes(userId);
+    // Kiểm tra xem userId có nằm trong blockList không
+    const isBlocked = user.block_list.some(
+      (blockedUser) => blockedUser._id.toString() === userId
+    );
+
+    if (isBlocked) {
+      // Nếu userId nằm trong blockList, có thể trả về mảng rỗng hoặc thông báo tùy chọn
+      const error = new HttpError("Không tìm thấy posts!", 404);
+      return next(error);
+    } else {
+      // Nếu userId không nằm trong blockList, sử dụng populate để lấy danh sách bài viết
+      await user.populate({
+        path: "posts",
+        options: {
+          sort: { created_at: -1 },
+          skip: (page - 1) * limit,
+          limit: limit,
+        },
+      });
+
+      const posts = user.posts.map((post) => ({
+        creator: post.creator,
+        reacts_count: post.reacts.length,
+        comments_count: post.comments.length,
+        created_at: post.created_at,
+        media: post.media,
+      }));
+
+      res.status(200).json({ posts: posts });
+    }
+  } catch (err) {
+    console.log("Bài viết 1===============: ", err);
     const error = new HttpError(
       "Có lỗi khi lấy bài viết, vui lòng thử lại!",
       500
@@ -447,3 +505,4 @@ exports.deletePost = deletePost;
 exports.deleteComment = deleteComment;
 exports.reactPost = reactPost;
 exports.comment = comment;
+exports.getUserPosts = getUserPosts;
