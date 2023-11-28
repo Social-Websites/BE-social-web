@@ -7,7 +7,7 @@ const notificationSchema = new Schema({
   user_id: { type: Types.ObjectId, required: true, ref: "User" },
   sender_id: { type: Types.ObjectId, required: true, ref: "User" },
   content: { type: String, required: true },
-  content_id: { type: Types.ObjectId, required: true },
+  content_id: { type: Types.ObjectId },
   read: { type: Boolean, required: true },
 }, {
   timestamps: { createdAt: "created_at", updatedAt: "updated_at" }

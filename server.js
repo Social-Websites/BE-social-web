@@ -82,34 +82,42 @@ DBconnect(() => {
       } else if(type == "comment"){
           content = " comment on your post";
       } else if(type == "post"){
-          content = "create the post";
+          content = " create the post";
       }
-      const recieveIds = receiver_id;
-      recieveIds.forEach( async (reciever) => {
-        const newNotification = new Notification({
-          user_id: reciever,
-          sender_id: sender_id,
-          content: content,
-          content_id: content_id,
-          read: false
-        });
-      
-      // Lưu thông báo vào cơ sở dữ liệu
-      await newNotification.save()
-        .then(async (notification) => {
-          console.log("Thông báo đã được tạo:", notification);
-          const sendUserSocket = onlineUsers.get(reciever);
-          const sender = await User.findById(notification.sender_id).exec();
-          const data = {_id: notification._id, sender_id: notification.sender_id, senderName: sender.username, img: sender.profile_picture, content: notification.content, read: false, createAt: notification.created_at};
+      const liked = Notification.findOne({ sender_id, content_id }).exec();
+      liked.then((check) => {
+        console.log(check);
+        if (check == null || type != "like") {
+          const recieveIds = receiver_id;
+          recieveIds.forEach( async (reciever) => {
+            const newNotification = new Notification({
+              user_id: reciever,
+              sender_id: sender_id,
+              content: content,
+              content_id: content_id,
+              read: false
+            });
           
-          if (sendUserSocket) {
-            console.log("da gui cho " + sendUserSocket);
-            socket.to(sendUserSocket).emit("getNotification", data);
-          }
-        })
-        .catch((error) => {
-          console.error("Lỗi khi tạo thông báo:", error);
-        });
+          // Lưu thông báo vào cơ sở dữ liệu
+          await newNotification.save()
+            .then(async (notification) => {
+              console.log("Thông báo đã được tạo:", notification);
+              const sendUserSocket = onlineUsers.get(reciever);
+              const sender = await User.findById(notification.sender_id).exec();
+              const data = {_id: notification._id, sender_id: notification.sender_id, senderName: sender.username, img: sender.profile_picture, content: notification.content, read: false, createAt: notification.created_at};
+              
+              if (sendUserSocket) {
+                console.log("da gui cho " + sendUserSocket);
+                socket.to(sendUserSocket).emit("getNotification", data);
+              }
+            })
+            .catch((error) => {
+              console.error("Lỗi khi tạo thông báo:", error);
+            });
+          });
+        }
+      }).catch((error) => {
+        console.error("Lỗi trong quá trình thực hiện tim notification:", error);
       });
     });
   });

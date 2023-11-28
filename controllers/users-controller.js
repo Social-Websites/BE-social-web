@@ -9,6 +9,7 @@ const getUser = async (req, res, next) => {
       username: 1,
       profile_picture: 1,
       full_name: 1,
+      friends: 1,
     });
     res.json({ user: user });
   } catch (errors) {

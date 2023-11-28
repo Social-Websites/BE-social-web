@@ -49,7 +49,6 @@ class ConversationController {
           userIds.push(user._id);
         }
         if(!conversation.is_group){
-          console.log(conversation._id)
           conversationInfo.push({_id: conversation._id, userIds: userIds, name: friends.full_name, img: friends.profile_picture, lastMsg: last_message, unread: unread, online: friends.online});
         }
         else
