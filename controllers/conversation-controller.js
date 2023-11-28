@@ -4,7 +4,7 @@ const User = require("../models/user");
 
 
 class ConversationController {
-  async  getUserConversations(req, res, next) {
+  async getUserConversations(req, res, next) {
     const userId = req.params.userId; // ID của người dùng
     const conversationInfo = [];
   
@@ -103,6 +103,61 @@ class ConversationController {
       res.json(savedConversation);
     } catch (error) {
       next(error);
+    }
+  }
+
+  async searchConversation(req, res, next) {
+    const conversationInfo = [];
+    const userId = req.query.userId; // ID của người dùng
+    const searchText = req.query.searchText;
+    console.log("userId" + userId);
+    console.log("Search" + searchText);
+    try {
+      const regex = new RegExp(searchText, "i");
+      const users = await User.find({
+        $or: [{ username: regex }, { full_name: regex }],
+      }).limit(10); // Giới hạn trả về 50 kết quả
+      const userIds = users.map(user => user._id)
+      console.log("userId" + userIds);
+      const firendId = userIds.filter(id => id != userId);
+      console.log("firendId" + firendId);
+      const cons = await Conversation.find({ users: { $in: userIds } }).limit(20); // Giới hạn trả về 50 kết quả
+      console.log("Consvaersarion: " + cons);
+      for (const conversation of cons) {
+        let last_message = "";
+        let unread;
+        if(conversation.last_message){
+          const message = await Message.findById(conversation?.last_message).exec();
+          if (message && (message.reader.includes(userId) || message.sender == userId)) unread = false;
+          else unread = true;
+          if(message.sender != userId){
+            if(message.media.length == 0) last_message = message?.content;
+            else last_message = "Image";
+          }
+          else{
+            if(message.media.length == 0) last_message = "You: " + message?.content;
+            else last_message = "You: Image";
+          }
+        }
+        const userIds = [];
+
+        const friends = await User.findById(conversation.users.filter(item => item != userId)).exec();
+        const friendIdsArray = Array.isArray(friends) ? friends : [friends];
+        for(const user of friendIdsArray){
+          userIds.push(user._id);
+        }
+        if(!conversation.is_group){
+          conversationInfo.push({_id: conversation._id, userIds: userIds, name: friends.full_name, img: friends.profile_picture, lastMsg: last_message, unread: unread, online: friends.online});
+        }
+        else
+          conversationInfo.push({_id: conversation._id, userIds: userIds, name: conversation.name, img: conversation.avatar, lastMsg: last_message, unread: unread, online: true})
+      }
+
+      res.json(conversationInfo);
+      
+    } catch (error) {
+      console.error(error);
+      next(error + searchText);
     }
   }
 
