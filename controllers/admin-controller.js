@@ -1,6 +1,7 @@
 const User = require("../models/user");
 const Post = require("../models/post");
 
+//THỐNG KÊ
 const getWeeklyOverview = async (res) => {
     try {
         const today = new Date();
@@ -45,37 +46,20 @@ const getWeeklyOverview = async (res) => {
     }
 };
 
-
-
 const calculatePercent = (newUsersCountToday, newUsersCountYesterday) => {
-
-    // Convert string inputs to numbers if possible
-    newUsersCountToday = parseFloat(newUsersCountToday);
-    newUsersCountYesterday = parseFloat(newUsersCountYesterday);
-    // Check for NaN after conversion
-    if (isNaN(newUsersCountToday) || isNaN(newUsersCountYesterday)) {
-        return null;
+    newUsersCountToday = parseFloat(newUsersCountToday); 
+    newUsersCountYesterday = parseFloat(newUsersCountYesterday); 
+    if (isNaN(newUsersCountToday)  || isNaN(newUsersCountYesterday 
+        || newUsersCountYesterday < 0  || newUsersCountToday < 0)) {
+        return null; (7)
     }
-
-    // Check for negative values
-    if (newUsersCountYesterday < 0 || newUsersCountToday < 0) {
-        return null;
-    }
-
-    // Node 1: Check if the count yesterday is not 0
     if (newUsersCountYesterday !== 0) {
-        // Node 2: Calculate and return the growth rate
-        return (newUsersCountToday - newUsersCountYesterday) / newUsersCountYesterday * 100;
+        return (newUsersCountToday - newUsersCountYesterday) / newUsersCountYesterday * 100; (9)
     }
-
-    // Node 3: Check if the count today is not 0
-    if (newUsersCountToday !== 0) {
-        // Node 4: Return 100% if there are new users today without any yesterday
-        return 100;
+    if (newUsersCountToday !== 0) {     
+        return 100; 
     }
-
-    // Node 5: No growth if both counts are 0
-    return 0;
+    return 0; 
 };
 
 const getDailyUserCount = async (startDate, endDate) => {
@@ -136,13 +120,91 @@ const getWeeklyPostsOverview = async (res) => {
         res.status(500).json({ error: 'Có lỗi khi lấy tổng quan hàng tuần của bài đăng' });
     }
 };
+//USER
+const getUserPaginated = async (req, res) => {
+    try {
+      const page = parseInt(req.query.page) || 1;
+      const limit = parseInt(req.query.limit) || 10;
+  
+      if (page < 1 || limit < 1) {
+        return res.status(400).json({ message: 'Invalid page or limit value' });
+      }
+  
+      const skip = (page - 1) * limit;
+  
+      const users = await User.find({})
+        .sort({ created_at: -1 })
+        .skip(skip)
+        .limit(limit);
+  
+      const totalUsers = await User.countDocuments();
+  
+      res.json({
+        users: users,
+        currentPage: page,
+        totalPages: Math.ceil(totalUsers / limit),
+        totalUsers: totalUsers,
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Encountered an error while retrieving paginated users' });
+    }
+  };  
 
 
+
+const banUser = async (req, res) => {
+  const userIdToBan = req.params.userId;
+
+  try {
+    // Tìm người dùng cần cấm
+    const userToBan = await User.findById(userIdToBan);
+
+    if (!userToBan) {
+      return res.status(404).json({ message: 'Không tìm thấy người dùng để cấm.' });
+    }
+
+    // Cập nhật trạng thái cấm và lưu lại
+    userToBan.ban = true;
+    await userToBan.save();
+
+    res.status(200).json({ message: 'Người dùng đã được cấm thành công.' });
+  } catch (error) {
+    console.error('Lỗi khi cấm người dùng:', error);
+    res.status(500).json({ message: 'Đã xảy ra lỗi trong quá trình cấm người dùng.' });
+  }
+};
+
+const unbanUser = async (req, res) => {
+    const userIdToUnban = req.params.userId;
+  
+    try {
+      // Tìm người dùng cần bỏ cấm
+      const userToUnban = await User.findById(userIdToUnban);
+  
+      if (!userToUnban) {
+        return res.status(404).json({ message: 'Không tìm thấy người dùng để bỏ cấm.' });
+      }
+  
+      // Cập nhật trạng thái cấm và lưu lại
+      userToUnban.ban = false;
+      await userToUnban.save();
+  
+      res.status(200).json({ message: 'Người dùng đã được bỏ cấm thành công.' });
+    } catch (error) {
+      console.error('Lỗi khi bỏ cấm người dùng:', error);
+      res.status(500).json({ message: 'Đã xảy ra lỗi trong quá trình bỏ cấm người dùng.' });
+    }
+  };
 //-------------------------------POST-----------------------------------------------------
 const getPaginatedPosts = async (req, res) => {
     try {
         const page = parseInt(req.query.page) || 1; 
         const limit = parseInt(req.query.limit) || 10; 
+
+        if (page < 1 || limit < 1) {
+            return res.status(400).json({ message: 'Invalid page or limit value' });
+        }
         
         const skip = (page - 1) * limit;
 
@@ -159,54 +221,64 @@ const getPaginatedPosts = async (req, res) => {
             totalPages: Math.ceil(totalPosts / limit),
             totalPosts: totalPosts,
         });
-    } catch (error) {
-        res.status(500).json({ error: 'Có lỗi khi lấy bài post phân trang' });
+    } catch (message) {
+        res.status(500).json({ message: 'Encountered an error while retrieving paginated posts' });
     }
 };
 
-
-
-
-
-const createPost = async (req, res, next) => {
-    const errors = validationResult(req);
-    if (!errors.isEmpty()) {
-      return next(new HttpError("Giá trị nhập vào không hợp lệ!", 422));
-    }
-    const userId = req.userData.id;
-  
-    const user = await User.findById(userId);
-    if (!user) {
-      const error = new HttpError("Không tìm thấy user!", 404);
-      return next(error);
-    }
-  
-    const { title, urlStrings } = req.body;
-    const newPost = new Post({
-      creator: userId,
-      content: title ? title : "",
-      media: urlStrings,
-    });
+//Xóa bài viết
+const deletePostByAdmin = async (req, res) => {
+    const postId = req.params.postId;
+    const newDeletedByValue = 'ADMIN';
   
     try {
-      const sess = await mongoose.startSession();
-      sess.startTransaction();
-      await newPost.save({ session: sess });
-      user.posts.push(newPost);
-      await user.save({ session: sess });
-      await sess.commitTransaction();
-    } catch (err) {
-      console.log("Bài viết 1===============: ", err);
-      const error = new HttpError(
-        "Có lỗi khi tạo bài viết, vui lòng thử lại!",
-        500
+      const updatedPost = await Post.findOneAndUpdate(
+        { _id: postId },
+        { $set: { deleted_by: newDeletedByValue } },
+        { new: true }
       );
-      return next(error);
+  
+      if (!updatedPost) {
+        return res.status(404).json({ message: 'Không tìm thấy bài viết để xóa.' });
+      }
+      return res.status(200).json({ message: 'Bài viết đã được xóa thành công.' });
+    } catch (error) {
+      return res.status(500).json({ message: 'Đã xảy ra lỗi trong quá trình xóa bài viết.' });
     }
-    res.status(201).json({ message: "Tạo bài viết mới thành công!" });
   };
+
+const unDeletePostByAdmin = async (req, res) => {
+  const postId = req.params.postId;  
+  try {
+    const updatedPost = await Post.findOneAndUpdate(
+      { _id: postId },
+      { $unset: { deleted_by: 1 } }, // Sử dụng $unset để xóa trường deleted_by
+      { new: true }
+  );
+
+    if (!updatedPost) {
+      return res.status(404).json({ message: 'Không tìm thấy bài viết' });
+    }
+    return res.status(200).json({ message: 'Bài viết đã được mở xóa thành công.' });
+  } catch (error) {
+    return res.status(500).json({ message: 'Đã xảy ra lỗi trong quá trình xóa bài viết.' });
+  }
+};
+  
+
+
+
+
 //Thống kê
 exports.getWeeklyOverview = getWeeklyOverview;
 exports.getWeeklyPostsOverview = getWeeklyPostsOverview;
 //QUản lý post
 exports.getPaginatedPosts = getPaginatedPosts;
+exports.deletePostByAdmin = deletePostByAdmin;
+exports.unDeletePostByAdmin = unDeletePostByAdmin;
+//Quản lý user
+exports.getUserPaginated = getUserPaginated;
+exports.banUser = banUser;
+exports.unbanUser = unbanUser;
+
+
