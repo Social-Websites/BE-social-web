@@ -103,7 +103,7 @@ const getUserFriendsListByUsername = async (req, res, next) => {
     );
 
     // Kiểm tra và thêm trường is_your_friend cho từng phần tử trong mảng friends
-    user.friends = user.friends.map((friend) => ({
+    const friendsList = user.friends.map((friend) => ({
       ...friend._doc,
       is_your_friend: yourList.friends.some((yourFriend) =>
         yourFriend.equals(friend._id)
@@ -113,7 +113,7 @@ const getUserFriendsListByUsername = async (req, res, next) => {
       ),
     }));
 
-    res.json({ friends: user.friends });
+    res.json({ friends: friendsList });
   } catch (err) {
     console.error("======Lấy danh sách bạn bè của người dùng: ", err);
     const error = new HttpError(

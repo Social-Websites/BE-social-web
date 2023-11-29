@@ -311,11 +311,12 @@ const getUserPosts = async (req, res, next) => {
       });
 
       const posts = user.posts.map((post) => ({
-        creator: post.creator,
+        _id: post._id,
         reacts_count: post.reacts.length,
         comments_count: post.comments.length,
         created_at: post.created_at,
         media: post.media,
+        content: post.content,
       }));
 
       res.status(200).json({ posts: posts });
