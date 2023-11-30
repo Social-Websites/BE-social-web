@@ -318,6 +318,44 @@ const rejectAddFriendRequest = async (req, res, next) => {
   res.json({ message: "Đã từ chối lời mời kết bạn!" });
 };
 
+const unFriend = async (req, res, next) => {
+  const userId = req.userData.id;
+  const friendId = req.params.friendId;
+
+  try {
+    const [user, friend] = await Promise.all([
+      User.findById(userId).select("friends"),
+      User.findById(friendId).select("friends"),
+    ]);
+
+    if (!user || !friend) {
+      const error = new HttpError("Không tìm thấy người dùng!", 404);
+      return next(error);
+    }
+
+    const sess = await mongoose.startSession();
+    sess.startTransaction();
+
+    // Pull friendId từ mảng friends của cả hai user
+    user.friends.pull(friendId);
+    friend.friends.pull(userId);
+
+    await user.save({ session: sess });
+    await friend.save({ session: sess });
+
+    await sess.commitTransaction();
+  } catch (err) {
+    console.log("Unfriend==============: ", err);
+    const error = new HttpError(
+      "Có lỗi khi hủy kết bạn, vui lòng thử lại!",
+      500
+    );
+    return next(error);
+  }
+
+  res.json({ message: "Đã hủy kết bạn!" });
+};
+
 const searchUsers = async (req, res, next) => {
   const searchText = req.query.searchText;
   console.log(searchText);
@@ -349,3 +387,4 @@ exports.sendAddFriendRequest = sendAddFriendRequest;
 exports.acceptAddFriendRequest = acceptAddFriendRequest;
 exports.removeAddFriendRequest = removeAddFriendRequest;
 exports.rejectAddFriendRequest = rejectAddFriendRequest;
+exports.unFriend = unFriend;

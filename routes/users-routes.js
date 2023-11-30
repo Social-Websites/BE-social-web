@@ -14,6 +14,7 @@ router.get("/auth-user", UsersController.getUser);
 router.get("/:username", UsersController.getUserByUsername);
 router.get("/:username/friends", UsersController.getUserFriendsListByUsername);
 router.get("/auth-user/friend-requests", UsersController.getFriendRequestsList);
+router.patch("/auth-user/unfriend/:friendId", UsersController.unFriend);
 router.patch(
   "/friend-requests/send/:userId",
   UsersController.sendAddFriendRequest
