@@ -19,7 +19,7 @@ class NotificationsController {
             for (const notification of notifications) {
             const sender = await User.findById(notification.sender_id).exec();
             notificationsInfo.push({_id: notification._id, sender_id: notification.sender_id, senderName: sender.username, 
-                img: sender.profile_picture, content: notification.content, read:notification.read, createAt: notification.created_at});
+                img: sender.profile_picture, content_id: notification.content_id, content: notification.content, reponse: notification.reponse, read:notification.read, createAt: notification.created_at});
             }
         }
         res.json(notificationsInfo);
@@ -69,7 +69,21 @@ class NotificationsController {
         } catch (error) {
           next(error);
         }
-      }
+    }
+
+    async deleteNotification(req, res, next) {
+        const notificationId = req.query.notificationId;
+
+        Notification.deleteOne({ _id: notificationId })
+        .then(() => {
+            console.log("Notification deleted successfully.");
+            res.json(true);
+        })
+        .catch((error) => {
+            console.error("Error deleting notification:", error);
+            next(error);
+        });
+    }
 }
 
 module.exports = new NotificationsController();
