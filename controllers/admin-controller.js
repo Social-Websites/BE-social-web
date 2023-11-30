@@ -122,34 +122,41 @@ const getWeeklyPostsOverview = async (res) => {
 };
 //USER
 const getUserPaginated = async (req, res) => {
-    try {
+  try {
       const page = parseInt(req.query.page) || 1;
       const limit = parseInt(req.query.limit) || 10;
-  
+      const searchQuery = req.query.search || null;
+
       if (page < 1 || limit < 1) {
-        return res.status(400).json({ message: 'Invalid page or limit value' });
+          return res.status(400).json({ message: 'Invalid page or limit value' });
       }
-  
+
+      let query = {};
+
+      if (searchQuery) {
+          query = { full_name: { $regex: searchQuery, $options: 'i' } };
+      }
+
       const skip = (page - 1) * limit;
-  
-      const users = await User.find({})
-        .sort({ created_at: -1 })
-        .skip(skip)
-        .limit(limit);
-  
-      const totalUsers = await User.countDocuments();
-  
+
+      const users = await User.find(query)
+          .sort({ created_at: -1 })
+          .skip(skip)
+          .limit(limit);
+
+      const totalUsers = await User.countDocuments(query);
+
       res.json({
-        users: users,
-        currentPage: page,
-        totalPages: Math.ceil(totalUsers / limit),
-        totalUsers: totalUsers,
+          users: users,
+          currentPage: page,
+          totalPages: Math.ceil(totalUsers / limit),
+          totalUsers: totalUsers,
       });
-    } catch (error) {
+  } catch (error) {
       console.error(error);
       res.status(500).json({ message: 'Encountered an error while retrieving paginated users' });
-    }
-  };  
+  }
+};
 
 
 
@@ -198,32 +205,38 @@ const unbanUser = async (req, res) => {
   };
 //-------------------------------POST-----------------------------------------------------
 const getPaginatedPosts = async (req, res) => {
-    try {
-        const page = parseInt(req.query.page) || 1; 
-        const limit = parseInt(req.query.limit) || 10; 
+  try {
+      const page = parseInt(req.query.page) || 1; 
+      const limit = parseInt(req.query.limit) || 10; 
+      const searchQuery = req.query.search || null; 
 
-        if (page < 1 || limit < 1) {
-            return res.status(400).json({ message: 'Invalid page or limit value' });
-        }
-        
-        const skip = (page - 1) * limit;
+      if (page < 1 || limit < 1) {
+          return res.status(400).json({ message: 'Invalid page or limit value' });
+      }
+      let query = {};
 
-        const posts = await Post.find({})
-            .sort({ created_at: -1 }) 
-            .skip(skip)
-            .limit(limit);
+      if (searchQuery) {
+          query = { content: { $regex: searchQuery, $options: 'i' } };
+      }
 
-        const totalPosts = await Post.countDocuments();
+      const skip = (page - 1) * limit;
 
-        res.json({
-            posts: posts,
-            currentPage: page,
-            totalPages: Math.ceil(totalPosts / limit),
-            totalPosts: totalPosts,
-        });
-    } catch (message) {
-        res.status(500).json({ message: 'Encountered an error while retrieving paginated posts' });
-    }
+      const posts = await Post.find(query)
+          .sort({ created_at: -1 }) 
+          .skip(skip)
+          .limit(limit);
+
+      const totalPosts = await Post.countDocuments(query);
+
+      res.json({
+          posts: posts,
+          currentPage: page,
+          totalPages: Math.ceil(totalPosts / limit),
+          totalPosts: totalPosts,
+      });
+  } catch (error) {
+      res.status(500).json({ message: 'Encountered an error while retrieving paginated posts' });
+  }
 };
 
 //Xóa bài viết
