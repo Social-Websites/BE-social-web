@@ -121,7 +121,11 @@ class ConversationController {
       console.log("userId" + userIds);
       const firendId = userIds.filter(id => id != userId);
       console.log("firendId" + firendId);
-      const cons = await Conversation.find({ users: { $in: userIds } }).limit(20); // Giới hạn trả về 50 kết quả
+      const cons = await Conversation.find({
+        $and: [
+          { users: userId },
+          { users: { $in: userIds } }
+        ] }).limit(20); // Giới hạn trả về 50 kết quả
       console.log("Consvaersarion: " + cons);
       for (const conversation of cons) {
         let last_message = "";
