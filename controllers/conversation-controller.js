@@ -22,7 +22,7 @@ class ConversationController {
   
       // Tìm các cuộc trò chuyện dựa trên danh sách conversationIds
       const conversations = await Conversation.find({ _id: { $in: conversationIds } })
-        .sort({ createdAt: -1 }) // Sắp xếp theo thứ tự giảm dần của createdAt
+        .sort({ updated_at: -1 }) // Sắp xếp theo thứ tự giảm dần của createdAt
         .exec();
       
       for (const conversation of conversations) {
