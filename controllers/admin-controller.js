@@ -1,51 +1,74 @@
 const User = require("../models/user");
 const Post = require("../models/post");
 
-//THỐNG KÊ
-const getWeeklyOverview = async (res) => {
-    try {
-        const today = new Date();
-        const currentDayOfWeek = today.getDay();
+const getWeeklyOverviewCombined = async (res) => {
+  try {
+      const today = new Date();
+      const currentDayOfWeek = today.getDay();
 
-        const daysToMonday = (currentDayOfWeek + 6) % 7;
-        const startOfWeek = new Date(today);
-        startOfWeek.setDate(today.getDate() - daysToMonday);
-        startOfWeek.setHours(0, 0, 0, 0);
+      const daysToMonday = (currentDayOfWeek + 6) % 7;
+      const startOfWeek = new Date(today);
+      startOfWeek.setDate(today.getDate() - daysToMonday);
+      startOfWeek.setHours(0, 0, 0, 0);
 
-        const chartArray = [];
+      const chartArray = [];
+      const postArray = [];
 
-        for (let i = 0; i <= daysToMonday; i++) {
-            const currentDate = new Date(startOfWeek);
-            currentDate.setDate(startOfWeek.getDate() + i);
+      for (let i = 0; i <= daysToMonday; i++) {
+          const currentDate = new Date(startOfWeek);
+          currentDate.setDate(startOfWeek.getDate() + i);
 
-            const nextDate = new Date(currentDate);
-            nextDate.setDate(currentDate.getDate() + 1);
-            nextDate.setSeconds(nextDate.getSeconds() - 1);
+          const nextDate = new Date(currentDate);
+          nextDate.setDate(currentDate.getDate() + 1);
+          nextDate.setSeconds(nextDate.getSeconds() - 1);
 
-            const dailyCount = await getDailyUserCount(currentDate, nextDate);
-            chartArray.push(dailyCount);
-        }
+          const dailyCountUsers = await getDailyUserCount(currentDate, nextDate);
+          chartArray.push(dailyCountUsers);
 
-        const newUsersCountToday = chartArray[daysToMonday];
-        const newUsersCountYesterday = chartArray[daysToMonday - 1];
+          const dailyPosts = await getPosts(currentDate, nextDate);
+          postArray.push(dailyPosts);
+      }
 
-        const isGrowth = newUsersCountToday > newUsersCountYesterday;
-        const percent = calculatePercent(newUsersCountToday, newUsersCountYesterday);
+      const newUsersCountToday = chartArray[daysToMonday];
+      const newUsersCountYesterday = chartArray[daysToMonday - 1];
 
-        res.json({
-            title: 'new users',
-            count: newUsersCountToday,
-            isGrowth: isGrowth,
-            percent: percent,
-            chartArray: chartArray,
-        });
+      const isGrowthUsers = newUsersCountToday >= newUsersCountYesterday;
+      const percentUsers = calculatePercent(newUsersCountToday, newUsersCountYesterday);
 
-    } catch (error) {
-        console.error('Lỗi khi lấy tổng quan hàng tuần:', error);
-        res.status(500).json({ error: 'Có lỗi khi lấy tổng quan hàng tuần' });
-    }
+      const postsCountToday = postArray[daysToMonday];
+      const postsCountYesterday = postArray[daysToMonday - 1];
+
+      const isGrowthPosts = postsCountToday > postsCountYesterday;
+      const percentPosts = calculatePercent(postsCountToday, postsCountYesterday);
+
+      res.json({
+          overview: [
+              {
+                  title: 'new users',
+                  count: newUsersCountToday,
+                  isGrowth: isGrowthUsers,
+                  percent: percentUsers,
+                  chartArray: chartArray,
+              },
+              {
+                  title: 'new posts',
+                  count: postsCountToday,
+                  isGrowth: isGrowthPosts,
+                  percent: percentPosts,
+                  postArray: postArray,
+              },
+          ],
+      });
+
+  } catch (error) {
+      console.error('Error getting combined weekly overview:', error);
+      res.status(500).json({ error: 'Error getting combined weekly overview' });
+  }
 };
 
+//THỐNG KÊ
+
+//////////////////////////////// 
 const calculatePercent = (newUsersCountToday, newUsersCountYesterday) => {
     newUsersCountToday = parseFloat(newUsersCountToday); 
     newUsersCountYesterday = parseFloat(newUsersCountYesterday); 
@@ -73,53 +96,22 @@ const getDailyUserCount = async (startDate, endDate) => {
     }
 };
 
-const getWeeklyPostsOverview = async (res) => {
-    try {
-        const today = new Date();
-        const currentDayOfWeek = today.getDay(); // Lấy ngày trong tuần của ngày hiện tại
 
-        // Tính toán số ngày cần truy vấn để lấy từ thứ 2 đến ngày hiện tại
-        const daysToMonday = (currentDayOfWeek + 6) % 7; // (currentDayOfWeek + 6) % 7 sẽ đưa chúng ta đến thứ 2 gần nhất
 
-        // Lấy ngày đầu tuần (ngày thứ 2)
-        const startOfWeek = new Date(today);
-        startOfWeek.setDate(today.getDate() - daysToMonday);
-        startOfWeek.setHours(0, 0, 0, 0);
-
-        // Tạo mảng chứa số bài đăng mới từng ngày trong tuần
-        const chartArray = [];
-        for (let i = 0; i <= daysToMonday; i++) {
-            const currentDate = new Date(startOfWeek);
-            currentDate.setDate(startOfWeek.getDate() + i);
-
-            const nextDate = new Date(currentDate);
-            nextDate.setDate(currentDate.getDate() + 1);
-            nextDate.setSeconds(nextDate.getSeconds() - 1);
-
-            // Thực hiện truy vấn để lấy số bài đăng mới trong khoảng thời gian từ currentDate đến nextDate
-            const dailyPostsCount = await Post.countDocuments({
-                created_at: { $gte: currentDate, $lt: nextDate },
-            });
-
-            chartArray.push(dailyPostsCount);
-        }
-
-        console.log(chartArray);
-
-        // Thực hiện truy vấn cho mỗi ngày trong tuần
-        res.json({
-            title: 'new posts',
-            count: chartArray[daysToMonday], // Số bài đăng mới của ngày hiện tại
-            isGrowth: null,
-            percent: null,
-            chartArray: chartArray,
-        });
-
-    } catch (error) {
-        console.error('Lỗi khi lấy tổng quan hàng tuần của bài đăng:', error);
-        res.status(500).json({ error: 'Có lỗi khi lấy tổng quan hàng tuần của bài đăng' });
-    }
+const getPosts = async (startDate, endDate) => {
+  try {
+    const dailyCount = await Post.countDocuments({
+        created_at: { $gte: startDate, $lt: endDate },
+    });
+    return dailyCount;
+} catch (error) {
+    throw error;
+}
 };
+
+
+///////////////////////////////////////////////////////////////////////
+
 //USER
 const getUserPaginated = async (req, res) => {
   try {
@@ -283,8 +275,7 @@ const unDeletePostByAdmin = async (req, res) => {
 
 
 //Thống kê
-exports.getWeeklyOverview = getWeeklyOverview;
-exports.getWeeklyPostsOverview = getWeeklyPostsOverview;
+exports.getWeeklyOverviewCombined = getWeeklyOverviewCombined;
 //QUản lý post
 exports.getPaginatedPosts = getPaginatedPosts;
 exports.deletePostByAdmin = deletePostByAdmin;
