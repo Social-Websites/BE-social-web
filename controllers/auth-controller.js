@@ -329,24 +329,15 @@ const resetPassword = async (req, res, next) => {
     return next(error);
   }
 
-  const saltRounds = 10;
-  let hashPass;
   try {
-    hashPass = await bcrypt.hash(password, saltRounds);
+    existingUser.password = password;
+    existingUser.reset_token = "";
+    await existingUser.save();
   } catch (err) {
     const error = new HttpError(
       "Có lỗi trong quá trình đặt lại mật khẩu, vui lòng thử lại sau!",
       500
     );
-    return next(error);
-  }
-
-  try {
-    existingUser.password = hashPass;
-    existingUser.reset_token = "";
-    await existingUser.save();
-  } catch (err) {
-    const error = new HttpError("Có lỗi xảy ra, vui lòng thử lại sau!", 500);
     return next(error);
   }
 

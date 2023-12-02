@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const HttpError = require("../models/http-error");
 const User = require("../models/user");
+const { getValidFields } = require("../util/validators");
 
 const getUser = async (req, res, next) => {
   const userId = req.userData.id;
@@ -378,6 +379,62 @@ const searchUsers = async (req, res, next) => {
   }
 };
 
+const updateUserFields = async (userId, updateFields) => {
+  try {
+    // Sử dụng findByIdAndUpdate để cập nhật nhiều trường
+    const user = await User.findByIdAndUpdate(
+      userId,
+      { $set: updateFields },
+      { new: true }
+    );
+
+    if (!user) {
+      throw new HttpError("Không tìm thấy người dùng!", 404);
+    }
+
+    return user;
+  } catch (err) {
+    console.error("Lỗi khi cập nhật thông tin người dùng: ", err);
+    throw new HttpError(
+      "Có lỗi khi cập nhật thông tin người dùng, vui lòng thử lại!",
+      500
+    );
+  }
+};
+
+const updateProfile = async (req, res, next) => {
+  const userId = req.userData.id;
+  const updateFields = req.body; // Chứa các trường cần cập nhật
+
+  // Kiểm tra và lọc các trường hợp lệ
+  const validFields = [
+    "full_name",
+    "bio",
+    "email",
+    "profile_picture",
+    "date_of_birth",
+    "gender",
+    "phone",
+    "hometown",
+    "self_lock",
+    "search_keyword",
+  ];
+  // Lọc và chỉ giữ lại các trường hợp lệ
+  const validUpdateFields = getValidFields(updateFields, validFields);
+
+  if (Object.keys(validUpdateFields).length === 0) {
+    const error = new HttpError("Các trường gửi đi không hợp lệ!", 400);
+    return next(error);
+  }
+
+  try {
+    const user = await updateUserFields(userId, validUpdateFields);
+    res.json({ message: "Đã cập nhật thông tin người dùng!", user });
+  } catch (err) {
+    return next(err);
+  }
+};
+
 exports.searchUsers = searchUsers;
 exports.getUser = getUser;
 exports.getUserByUsername = getUserByUsername;
@@ -388,3 +445,4 @@ exports.acceptAddFriendRequest = acceptAddFriendRequest;
 exports.removeAddFriendRequest = removeAddFriendRequest;
 exports.rejectAddFriendRequest = rejectAddFriendRequest;
 exports.unFriend = unFriend;
+exports.updateProfile = updateProfile;

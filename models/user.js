@@ -82,6 +82,7 @@ userSchema.pre("save", { document: true, query: false }, async function (next) {
   if (!this.isNew || !this.isModified("password")) return next();
 
   try {
+    console.log("Có hash pass");
     const saltRounds = 10;
     const hashedPass = await bcrypt.hash(this.password, saltRounds);
     this.password = hashedPass;
