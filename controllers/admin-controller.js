@@ -38,7 +38,7 @@ const getWeeklyOverviewCombined = async (res) => {
       const postsCountToday = postArray[daysToMonday];
       const postsCountYesterday = postArray[daysToMonday - 1];
 
-      const isGrowthPosts = postsCountToday > postsCountYesterday;
+      const isGrowthPosts = postsCountToday >= postsCountYesterday;
       const percentPosts = calculatePercent(postsCountToday, postsCountYesterday);
 
       res.json({
