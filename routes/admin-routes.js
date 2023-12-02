@@ -6,7 +6,7 @@ const router = express.Router();
 
 //Thống kê
 router.get('/statistic', async (req, res) => {
-  await adminController.getWeeklyOverview(res);
+  await adminController.getWeeklyOverviewCombined(res);
 });
 
 //POST

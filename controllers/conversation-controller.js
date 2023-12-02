@@ -22,7 +22,7 @@ class ConversationController {
   
       // Tìm các cuộc trò chuyện dựa trên danh sách conversationIds
       const conversations = await Conversation.find({ _id: { $in: conversationIds } })
-        .sort({ createdAt: -1 }) // Sắp xếp theo thứ tự giảm dần của createdAt
+        .sort({ updated_at: -1 }) // Sắp xếp theo thứ tự giảm dần của createdAt
         .exec();
       
       for (const conversation of conversations) {
@@ -56,6 +56,51 @@ class ConversationController {
       }
 
       res.json(conversationInfo);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async checkUserConversation(req, res, next) {
+    const userId = req.query.userId; // ID của người dùng
+    const userSearchId = req.query.userSearchId; // ID của người dùng
+    let conversationInfo;
+  
+    try {
+      // Tìm các cuộc trò chuyện dựa trên danh sách conversationIds
+      const conversation = await Conversation.findOne({ users: [userId,userSearchId]}).exec();
+      if(conversation){
+        let last_message = "";
+        let unread;
+        if(conversation.last_message){
+          const message = await Message.findById(conversation?.last_message).exec();
+          if (message && (message.reader.includes(userId) || message.sender == userId)) unread = false;
+          else unread = true;
+          if(message.sender != userId){
+            if(message.media.length == 0) last_message = message?.content;
+            else last_message = "Image";
+          }
+          else{
+            if(message.media.length == 0) last_message = "You: " + message?.content;
+            else last_message = "You: Image";
+          }
+        }
+        const userIds = [];
+
+        const friends = await User.findById(conversation.users.filter(item => item != userId)).exec();
+        const friendIdsArray = Array.isArray(friends) ? friends : [friends];
+        for(const user of friendIdsArray){
+          userIds.push(user._id);
+        }
+        if(!conversation.is_group){
+          conversationInfo={_id: conversation._id, userIds: userIds, name: friends.full_name, img: friends.profile_picture, lastMsg: last_message, unread: unread, online: friends.online};
+        }
+        else
+          conversationInfo={_id: conversation._id, userIds: userIds, name: conversation.name, img: conversation.avatar, lastMsg: last_message, unread: unread, online: true};
+      }
+
+      res.json(conversationInfo);
+      
     } catch (error) {
       next(error);
     }
