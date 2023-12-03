@@ -15,6 +15,7 @@ router.get("/:username", UsersController.getUserByUsername);
 router.get("/:username/friends", UsersController.getUserFriendsListByUsername);
 router.get("/auth-user/friend-requests", UsersController.getFriendRequestsList);
 router.patch("/auth-user", UsersController.updateProfile);
+router.patch("/auth-user/change-pass", UsersController.updatePassword);
 router.patch("/auth-user/unfriend/:friendId", UsersController.unFriend);
 router.patch(
   "/friend-requests/send/:userId",

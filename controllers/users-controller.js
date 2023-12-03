@@ -12,6 +12,7 @@ const getUser = async (req, res, next) => {
       profile_picture: 1,
       full_name: 1,
       friends: 1,
+      user_info: { bio: 1 },
     });
     res.json({ user: user });
   } catch (errors) {
@@ -53,7 +54,7 @@ const getUserByUsername = async (req, res, next) => {
       online: user.online,
       last_online: user.last_online,
       admin: user.admin,
-      user_info: { bio: user.bio },
+      user_info: { bio: user?.user_info.bio ? user?.user_info.bio : "" },
       is_friend: isFriend,
       is_friend_request_sent: isFriendRequestSent,
       posts_count: postsCount,
@@ -402,6 +403,26 @@ const updateUserFields = async (userId, updateFields) => {
   }
 };
 
+const transformObjectFields = (fields, prefix = "") => {
+  const transformedFields = {};
+
+  for (const key in fields) {
+    const fieldKey = prefix ? `${prefix}.${key}` : key;
+    const fieldValue = fields[key];
+
+    if (typeof fieldValue === "object") {
+      // Nếu là một đối tượng, tiếp tục đệ quy để biến đổi các trường con
+      const transformedSubFields = transformObjectFields(fieldValue, fieldKey);
+      Object.assign(transformedFields, transformedSubFields);
+    } else {
+      // Nếu không phải đối tượng, thêm trường vào danh sách đã biến đổi
+      transformedFields[fieldKey] = fieldValue;
+    }
+  }
+
+  return transformedFields;
+};
+
 const updateProfile = async (req, res, next) => {
   const userId = req.userData.id;
   const updateFields = req.body; // Chứa các trường cần cập nhật
@@ -426,13 +447,53 @@ const updateProfile = async (req, res, next) => {
     const error = new HttpError("Các trường gửi đi không hợp lệ!", 400);
     return next(error);
   }
+  const transformedFields = transformObjectFields(validUpdateFields);
+  console.log(transformedFields);
 
   try {
-    const user = await updateUserFields(userId, validUpdateFields);
-    res.json({ message: "Đã cập nhật thông tin người dùng!", user });
+    const user = await updateUserFields(userId, transformedFields);
+    res.json({ message: "Đã cập nhật thông tin người dùng!" });
   } catch (err) {
     return next(err);
   }
+};
+
+const updatePassword = async (req, res, next) => {
+  const userId = req.userData.id;
+  const { oldPass, newPass } = req.body;
+
+  try {
+    const existingUser = await User.findOne({
+      _id: userId,
+      admin: false,
+    }).select("+password");
+
+    if (!existingUser) {
+      const error = new HttpError("Người dùng không tồn tại!", 401);
+      return next(error);
+    }
+
+    console.log(existingUser);
+
+    const isValidPassword = await existingUser.comparePassword(oldPass);
+
+    if (!isValidPassword) {
+      const error = new HttpError("Mật khẩu cũ không chính xác!", 403);
+      return next(error);
+    }
+
+    existingUser.password = newPass;
+
+    await existingUser.save();
+  } catch (err) {
+    const error = new HttpError(
+      "Có lỗi trong quá trình đổi mật khẩu, vui lòng thử lại sau!",
+      500
+    );
+    return next(error);
+  }
+
+  res.json({ message: "Đổi mật khẩu thành công!" });
 };
 
 exports.searchUsers = searchUsers;
@@ -446,3 +507,4 @@ exports.removeAddFriendRequest = removeAddFriendRequest;
 exports.rejectAddFriendRequest = rejectAddFriendRequest;
 exports.unFriend = unFriend;
 exports.updateProfile = updateProfile;
+exports.updatePassword = updatePassword;

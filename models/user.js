@@ -79,7 +79,9 @@ userSchema.methods.comparePassword = async function (candidatePassword, next) {
 };
 
 userSchema.pre("save", { document: true, query: false }, async function (next) {
-  if (!this.isNew || !this.isModified("password")) return next();
+  if (!this.isNew) {
+    if (!this.isModified("password")) return next();
+  }
 
   try {
     console.log("Có hash pass");
@@ -88,10 +90,7 @@ userSchema.pre("save", { document: true, query: false }, async function (next) {
     this.password = hashedPass;
     next();
   } catch (err) {
-    const error = new HttpError(
-      "Có lỗi trong quá trình đăng ký, vui lòng thử lại sau!",
-      500
-    );
+    const error = new HttpError("Có lỗi xảy ra, vui lòng thử lại sau!", 500);
     return next(error);
   }
 });
