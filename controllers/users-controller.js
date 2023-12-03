@@ -24,6 +24,74 @@ const getUser = async (req, res, next) => {
   }
 };
 
+const getSuggestedUsers = async (req, res, next) => {
+  const userId = req.userData.id;
+
+  try {
+    // Lấy danh sách id của bạn bè của người dùng
+    const user = await User.findById(userId, { friends: 1 });
+    const friendIds = user.friends;
+
+    // Thực hiện aggregation để lấy ngẫu nhiên 5 người dùng không phải là bạn bè và không phải là admin
+    const suggestedUsers = await User.aggregate([
+      {
+        $match: {
+          _id: { $nin: [...friendIds, new mongoose.Types.ObjectId(userId)] },
+          admin: false,
+        },
+      },
+      { $sample: { size: 5 } },
+      {
+        $lookup: {
+          from: "users",
+          let: { suggestedUserId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $and: [
+                    { $eq: ["$$suggestedUserId", "$_id"] },
+                    {
+                      $in: [
+                        new mongoose.Types.ObjectId(userId),
+                        "$friend_requests",
+                      ],
+                    },
+                  ],
+                },
+              },
+            },
+            {
+              $project: { _id: 0 },
+            },
+          ],
+          as: "friend_request_sent",
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          username: 1,
+          profile_picture: 1,
+          full_name: 1,
+          is_friend_request_sent: {
+            $gt: [{ $size: "$friend_request_sent" }, 0],
+          },
+        },
+      },
+    ]);
+
+    res.json({ suggested_users: suggestedUsers });
+  } catch (err) {
+    console.error("Lỗi khi lấy người dùng đề xuất: ", error);
+    const error = new HttpError(
+      "Có lỗi khi lấy người dùng đề xuất, vui lòng thử lại sau!",
+      500
+    );
+    return next(error);
+  }
+};
+
 const getUserByUsername = async (req, res, next) => {
   const userId = req.userData.id;
   const username = req.params.username;
@@ -508,3 +576,4 @@ exports.rejectAddFriendRequest = rejectAddFriendRequest;
 exports.unFriend = unFriend;
 exports.updateProfile = updateProfile;
 exports.updatePassword = updatePassword;
+exports.getSuggestedUsers = getSuggestedUsers;

@@ -11,6 +11,7 @@ router.get("/search", UsersController.searchUsers);
 router.use(tokenHandler.verifyAccessToken);
 
 router.get("/auth-user", UsersController.getUser);
+router.get("/suggested", UsersController.getSuggestedUsers);
 router.get("/:username", UsersController.getUserByUsername);
 router.get("/:username/friends", UsersController.getUserFriendsListByUsername);
 router.get("/auth-user/friend-requests", UsersController.getFriendRequestsList);
