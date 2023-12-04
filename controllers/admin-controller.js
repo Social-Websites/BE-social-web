@@ -219,10 +219,50 @@ const getPaginatedPosts = async (req, res) => {
 
       const skip = (page - 1) * limit;
 
-      const posts = await Post.find(query)
-          .sort({ created_at: -1 }) 
-          .skip(skip)
-          .limit(limit);
+      const posts = await Post.aggregate([
+        {
+          $match: query,
+        },
+        {
+          $lookup: {
+            from: "reactions", // Replace "reactions" with the actual name of your reactions collection
+            localField: "_id",
+            foreignField: "post",
+            as: "reacts",
+          },
+        },
+        {
+          $lookup: {
+            from: "comments", // Replace "comments" with the actual name of your comments collection
+            localField: "_id",
+            foreignField: "post",
+            as: "comments",
+          },
+        },
+        {
+          $addFields: {
+            reacts_count: { $size: "$reacts" },
+            comments_count: { $size: "$comments" },
+          },
+        },
+        {
+          $project: {
+            reacts: 0, // Exclude the "reacts" array from the final result if you don't need it
+            comments: 0, // Exclude the "comments" array from the final result if you don't need it
+            __v: 0,
+            has_read: 0,
+          },
+        },
+        {
+          $sort: { created_at: -1 },
+        },
+        {
+          $skip: skip,
+        },
+        {
+          $limit: limit,
+        },
+      ]);
 
       const totalPosts = await Post.countDocuments(query);
 
