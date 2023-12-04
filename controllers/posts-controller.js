@@ -160,6 +160,64 @@ const deletePost = async (req, res, next) => {
   res.status(200).json({ message: "Xóa bài viết thành công!" });
 };
 
+const getSinglePost = async (req, res, next) => {
+  const userId = req.userData.id;
+  const postId = req.params.postId;
+
+  try {
+    const post = await Post.aggregate()
+      .match({ _id: new mongoose.Types.ObjectId(postId) })
+      .lookup({
+        from: "users",
+        localField: "creator",
+        foreignField: "_id",
+        as: "creator",
+      })
+      .unwind("creator")
+      .addFields({
+        is_user_liked: {
+          $in: [new mongoose.Types.ObjectId(userId), "$reacts.user"],
+        },
+        reacts_count: { $size: "$reacts" },
+        comments_count: { $size: "$comments" },
+      })
+      .project({
+        creator: { _id: 1, username: 1, profile_picture: 1, block_list: 1 },
+        is_user_liked: 1,
+        reacts_count: 1,
+        comments_count: 1,
+        updated_at: 1,
+        created_at: 1,
+        media: 1,
+        content: 1,
+        has_read: 1,
+        edit_at: 1,
+        shared_by: 1,
+        original_post: 1,
+      });
+
+    if (!post || post.length === 0) {
+      const error = new HttpError("Không tìm thấy bài viết!", 404);
+      return next(error);
+    }
+
+    // Kiểm tra xem người dùng hiện tại có bị chặn bởi người tạo bài viết không
+    if (post[0].creator.block_list.includes(userId)) {
+      const error = new HttpError("Bài viết không tồn tại!", 404);
+      return next(error);
+    }
+
+    res.json({ post: post[0] });
+  } catch (err) {
+    console.log("Lỗi khi lấy bài viết: ", err);
+    const error = new HttpError(
+      "Có lỗi khi lấy bài viết, vui lòng thử lại!",
+      500
+    );
+    return next(error);
+  }
+};
+
 const getHomePosts = async (req, res, next) => {
   const userId = req.userData.id;
   const page = Math.max(1, parseInt(req.query.page)) || 1; // Trang hiện tại (mặc định là 1)
@@ -507,3 +565,4 @@ exports.deleteComment = deleteComment;
 exports.reactPost = reactPost;
 exports.comment = comment;
 exports.getUserPosts = getUserPosts;
+exports.getSinglePost = getSinglePost;
