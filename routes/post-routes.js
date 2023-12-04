@@ -16,14 +16,14 @@ router.post(
   "/",
   [
     check("urlStrings").custom((value, { req }) => {
-      const title = req.body.title;
       const urls = req.body.urlStrings;
 
       if (
-        !title &&
-        (!urls || urls.length === 0 || urls.every((url) => url.trim() === ""))
+        !urls ||
+        urls.length === 0 ||
+        urls.every((url) => url.trim() === "")
       ) {
-        throw new Error("Title hoặc urlStrings phải tồn tại dữ liệu.");
+        throw new Error("Không có hình ảnh đăng tải!");
       }
 
       return true;

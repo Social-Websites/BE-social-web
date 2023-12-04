@@ -83,6 +83,53 @@ const verifyAccessToken = async (req, res, next) => {
   }
 };
 
+const verifyAdminAccessToken = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || authHeader.split(" ")[0] !== "Bearer") {
+    const error = new HttpError("Chưa xác thực!", 500);
+    return next(error);
+  }
+  try {
+    const token = authHeader.split(" ")[1];
+    if (!token) {
+      const error = new HttpError("Chưa xác thực!", 500);
+      return next(error);
+    }
+
+    const decodedToken = jwt.verify(token, access_key);
+
+    if (!decodedToken.admin) {
+      const error = new HttpError("Không có quyền truy cập!", 403);
+      return next(error);
+    }
+
+    const user = await User.findById(decodedToken.id).select("+password");
+
+    const isValidPassword = decodedToken.pw.trim() === user.password.trim();
+
+    if (!isValidPassword) {
+      const cookies = req.cookies;
+      if (cookies?.jwt) {
+        req.cookies = null;
+        res.clearCookie("jwt", {
+          httpOnly: true,
+          sameSite: "None",
+          secure: true,
+        });
+      }
+      const error = new HttpError("Phiên hoạt động hết hạn!", 401);
+      return next(error);
+    }
+
+    req.userData = decodedToken;
+    next();
+  } catch (err) {
+    console.log("1---access---------------------: ", err);
+    const error = new HttpError("Có lỗi khi xác thực!", 500);
+    return next(error);
+  }
+};
+
 const verifyRefreshToken = (refreshToken) => {
   try {
     const decodedToken = jwt.verify(refreshToken, refresh_key);
@@ -99,3 +146,4 @@ exports.verifyResetToken = verifyResetToken;
 exports.verifyOtpToken = verifyOtpToken;
 exports.verifyAccessToken = verifyAccessToken;
 exports.verifyRefreshToken = verifyRefreshToken;
+exports.verifyAdminAccessToken = verifyAdminAccessToken;

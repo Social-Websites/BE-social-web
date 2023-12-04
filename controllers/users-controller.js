@@ -29,57 +29,50 @@ const getSuggestedUsers = async (req, res, next) => {
 
   try {
     // Lấy danh sách id của bạn bè của người dùng
-    const user = await User.findById(userId, { friends: 1 });
+    const user = await User.findById(userId, {
+      friends: 1,
+      friend_requests_sent: 1,
+    });
     const friendIds = user.friends;
+    const friendRequestsSent = user.friend_requests_sent;
 
     // Thực hiện aggregation để lấy ngẫu nhiên 5 người dùng không phải là bạn bè và không phải là admin
-    const suggestedUsers = await User.aggregate([
-      {
-        $match: {
-          _id: { $nin: [...friendIds, new mongoose.Types.ObjectId(userId)] },
-          admin: false,
-        },
-      },
-      { $sample: { size: 5 } },
-      {
-        $lookup: {
-          from: "users",
-          let: { suggestedUserId: "$_id" },
-          pipeline: [
-            {
-              $match: {
-                $expr: {
-                  $and: [
-                    { $eq: ["$$suggestedUserId", "$_id"] },
-                    {
-                      $in: [
-                        new mongoose.Types.ObjectId(userId),
-                        "$friend_requests",
-                      ],
-                    },
-                  ],
-                },
-              },
-            },
-            {
-              $project: { _id: 0 },
-            },
+    const suggestedUsers = await User.aggregate()
+      .match({
+        _id: {
+          $nin: [
+            ...friendIds,
+            ...friendRequestsSent,
+            new mongoose.Types.ObjectId(userId),
           ],
-          as: "friend_request_sent",
         },
-      },
-      {
-        $project: {
-          _id: 1,
-          username: 1,
-          profile_picture: 1,
-          full_name: 1,
-          is_friend_request_sent: {
-            $gt: [{ $size: "$friend_request_sent" }, 0],
-          },
-        },
-      },
-    ]);
+        admin: false,
+      })
+      .sample(5)
+      .project({ _id: 1, username: 1, profile_picture: 1, full_name: 1 });
+    //   [
+    //   {
+    //     $match: {
+    //       _id: {
+    //         $nin: [
+    //           ...friendIds,
+    //           ...friendRequestsSent,
+    //           new mongoose.Types.ObjectId(userId),
+    //         ],
+    //       },
+    //       admin: false,
+    //     },
+    //   },
+    //   { $sample: { size: 5 } },
+    //   {
+    //     $project: {
+    //       _id: 1,
+    //       username: 1,
+    //       profile_picture: 1,
+    //       full_name: 1,
+    //     },
+    //   },
+    // ]);
 
     res.json({ suggested_users: suggestedUsers });
   } catch (err) {
