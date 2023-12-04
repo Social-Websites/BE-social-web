@@ -3,73 +3,8 @@ const Post = require("../models/post");
 
 const getWeeklyOverviewCombined = async (res) => {
   try {
-<<<<<<< Updated upstream
     const today = new Date();
     const currentDayOfWeek = today.getDay();
-=======
-      const today = new Date();
-      const currentDayOfWeek = today.getDay();
-
-      const daysToMonday = (currentDayOfWeek + 6) % 7;
-      const startOfWeek = new Date(today);
-      startOfWeek.setDate(today.getDate() - daysToMonday);
-      startOfWeek.setHours(0, 0, 0, 0);
-
-      const chartArray = [0,0,0,0,0,0,0];
-      const postArray = [0,0,0,0,0,0,0];
-
-      for (let i = 0; i <= daysToMonday; i++) {
-          const currentDate = new Date(startOfWeek);
-          currentDate.setDate(startOfWeek.getDate() + i);
-
-          const nextDate = new Date(currentDate);
-          nextDate.setDate(currentDate.getDate() + 1);
-          nextDate.setSeconds(nextDate.getSeconds() - 1);
-
-          const dailyCountUsers = await getDailyUserCount(currentDate, nextDate);
-          chartArray[i]=dailyCountUsers;
-
-          const dailyPosts = await getPosts(currentDate, nextDate);
-          postArray[i]=dailyPosts;
-      }
-
-      const newUsersCountToday = chartArray[daysToMonday];
-      const newUsersCountYesterday = chartArray[daysToMonday - 1];
-
-      const isGrowthUsers = newUsersCountToday >= newUsersCountYesterday;
-      const percentUsers = calculatePercent(newUsersCountToday, newUsersCountYesterday);
-
-      const postsCountToday = postArray[daysToMonday];
-      const postsCountYesterday = postArray[daysToMonday - 1];
-
-      const isGrowthPosts = postsCountToday >= postsCountYesterday;
-      const percentPosts = calculatePercent(postsCountToday, postsCountYesterday);
-
-      res.json([
-          {
-            label: "New Users",
-            value: newUsersCountToday,
-            iconLabel: percentUsers,
-            graphCardInfo: {
-              id: "new-users",
-              data: chartArray,
-              brColor: "rgba(33, 150, 243, 0.8)",
-              bgColor: "rgba(33, 150, 243, 0.2)",
-            },
-          },
-          {
-            label: "New Posts",
-            value: postsCountToday,
-            iconLabel: percentPosts,
-            graphCardInfo: {
-              id: "new-posts",
-              data: postArray,
-              brColor: "rgba(255, 193, 7, 1)",
-              bgColor: "rgba(255, 193, 7, 0.2)"
-            },
-          }
-            ]);
->>>>>>> Stashed changes
 
     const daysToMonday = (currentDayOfWeek + 6) % 7;
     const startOfWeek = new Date(today);
