@@ -41,24 +41,30 @@ const getWeeklyOverviewCombined = async (res) => {
       const isGrowthPosts = postsCountToday >= postsCountYesterday;
       const percentPosts = calculatePercent(postsCountToday, postsCountYesterday);
 
-      res.json({
-          overview: [
-              {
-                  title: 'new users',
-                  count: newUsersCountToday,
-                  isGrowth: isGrowthUsers,
-                  percent: percentUsers,
-                  chartArray: chartArray,
-              },
-              {
-                  title: 'new posts',
-                  count: postsCountToday,
-                  isGrowth: isGrowthPosts,
-                  percent: percentPosts,
-                  postArray: postArray,
-              },
-          ],
-      });
+      res.json([
+          {
+            label: "New Users",
+            value: newUsersCountToday,
+            iconLabel: percentUsers,
+            graphCardInfo: {
+              id: "new-users",
+              data: chartArray,
+              brColor: "rgba(33, 150, 243, 0.8)",
+              bgColor: "rgba(33, 150, 243, 0.2)",
+            },
+          },
+          {
+            label: "New Posts",
+            value: postsCountToday,
+            iconLabel: percentPosts,
+            graphCardInfo: {
+              id: "new-posts",
+              data: postArray,
+              brColor: "rgba(255, 193, 7, 1)",
+              bgColor: "rgba(255, 193, 7, 0.2)"
+            },
+          }
+            ]);
 
   } catch (error) {
       console.error('Error getting combined weekly overview:', error);
@@ -70,20 +76,20 @@ const getWeeklyOverviewCombined = async (res) => {
 
 //////////////////////////////// 
 const calculatePercent = (newUsersCountToday, newUsersCountYesterday) => {
-    newUsersCountToday = parseFloat(newUsersCountToday); 
-    newUsersCountYesterday = parseFloat(newUsersCountYesterday); 
-    if (isNaN(newUsersCountToday)  || isNaN(newUsersCountYesterday 
-        || newUsersCountYesterday < 0  || newUsersCountToday < 0)) {
-        return null; (7)
-    }
-    if (newUsersCountYesterday !== 0) {
-        return (newUsersCountToday - newUsersCountYesterday) / newUsersCountYesterday * 100; (9)
-    }
-    if (newUsersCountToday !== 0) {     
-        return 100; 
-    }
-    return 0; 
+  newUsersCountToday = parseFloat(newUsersCountToday); 
+  newUsersCountYesterday = parseFloat(newUsersCountYesterday); 
+  if (isNaN(newUsersCountToday) || isNaN(newUsersCountYesterday) || newUsersCountYesterday < 0 || newUsersCountToday < 0) {
+      return 0;
+  }
+  if (newUsersCountYesterday !== 0) {
+      return (newUsersCountToday - newUsersCountYesterday) / newUsersCountYesterday * 100; 
+  }
+  if (newUsersCountToday !== 0) {     
+      return 100; 
+  }
+  return 0; 
 };
+
 
 const getDailyUserCount = async (startDate, endDate) => {
     try {
