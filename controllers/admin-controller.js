@@ -443,7 +443,7 @@ const getUsersWithMostPosts = async (res) => {
     const usersWithMostPosts = await User.aggregate([
       {
         $lookup: {
-          from: 'posts',  // Tên collection của bài viết
+          from: 'posts',
           localField: 'posts',
           foreignField: '_id',
           as: 'posts',
@@ -453,25 +453,42 @@ const getUsersWithMostPosts = async (res) => {
         $project: {
           _id: 1,
           username: 1,
+          full_name: 1,
           profile_picture: 1,
           created_at: 1,
-          posts_count: { $size: '$posts' },  // Sử dụng $size để đếm số lượng bài viết
+          posts_count: { $size: { $ifNull: ['$posts', []] } }, // Use $ifNull to provide a default empty array
+          latest_post: {
+            $let: {
+              vars: {
+                latestPost: { $arrayElemAt: ['$posts', 0] },
+              },
+              in: {
+                _id: '$$latestPost._id',
+                content: '$$latestPost.content',
+                reacts_count: { $size: { $ifNull: ['$$latestPost.reacts', []] } }, // Handle reacts field
+                comments_count: { $size: { $ifNull: ['$$latestPost.comments', []] } }, // Handle comments field
+                created_at: '$$latestPost.created_at',
+              },
+            },
+          },
         },
       },
       {
-        $sort: { posts_count: -1 },  // Sắp xếp theo số lượng bài viết giảm dần
+        $sort: { posts_count: -1 },
       },
       {
-        $limit: 5,  // Lấy ra 5 người dùng có nhiều bài viết nhất
+        $limit: 5,
       },
     ]);
+
     res.json({
-      users:usersWithMostPosts
-  });
+      users: usersWithMostPosts,
+    });
   } catch (error) {
     console.error('Error:', error);
   }
 };
+
 
 
 
