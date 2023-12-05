@@ -25,6 +25,10 @@ router.get('/user', async (req, res) => {
   await adminController.getUserPaginated(req, res);
 });
 
+router.get('/user/mostpost', async (req, res) => {
+  await adminController.getUsersWithMostPosts(res);
+});
+
 router.put('/user/ban/:userId', async (req, res) => {
   await adminController.banUser(req, res);
 });

@@ -437,6 +437,41 @@ const signUp = async (req, res, next) => {
 
   res.status(201).json({ message: "Đăng ký thành công!" });
 };
+///////////////////////////////////////////////////////////////////////
+const getUsersWithMostPosts = async (res) => {
+  try {
+    const usersWithMostPosts = await User.aggregate([
+      {
+        $lookup: {
+          from: 'posts',  // Tên collection của bài viết
+          localField: 'posts',
+          foreignField: '_id',
+          as: 'posts',
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          username: 1,
+          profile_picture: 1,
+          created_at: 1,
+          posts_count: { $size: '$posts' },  // Sử dụng $size để đếm số lượng bài viết
+        },
+      },
+      {
+        $sort: { posts_count: -1 },  // Sắp xếp theo số lượng bài viết giảm dần
+      },
+      {
+        $limit: 5,  // Lấy ra 5 người dùng có nhiều bài viết nhất
+      },
+    ]);
+    res.json({
+      users:usersWithMostPosts
+  });
+  } catch (error) {
+    console.error('Error:', error);
+  }
+};
 
 
 
@@ -450,5 +485,6 @@ exports.unDeletePostByAdmin = unDeletePostByAdmin;
 exports.getUserPaginated = getUserPaginated;
 exports.banUser = banUser;
 exports.unbanUser = unbanUser;
+exports.getUsersWithMostPosts = getUsersWithMostPosts;
 
 
