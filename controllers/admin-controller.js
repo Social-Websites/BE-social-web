@@ -458,26 +458,62 @@ const getUsersWithMostPosts = async (res) => {
           created_at: 1,
           posts_count: { $size: { $ifNull: ['$posts', []] } }, // Use $ifNull to provide a default empty array
           latest_post: {
-            $let: {
-              vars: {
-                latestPost: { $arrayElemAt: ['$posts', 0] },
-              },
-              in: {
-                _id: '$$latestPost._id',
-                content: '$$latestPost.content',
-                reacts_count: { $size: { $ifNull: ['$$latestPost.reacts', []] } }, // Handle reacts field
-                comments_count: { $size: { $ifNull: ['$$latestPost.comments', []] } }, // Handle comments field
-                created_at: '$$latestPost.created_at',
-              },
-            },
+            $ifNull: [
+              { $arrayElemAt: ['$posts', 0] },
+              null
+            ]
           },
         },
       },
       {
-        $sort: { posts_count: -1 },
+        $sort: { posts_count: -1 }, // Sort users by posts_count in descending order
       },
       {
         $limit: 5,
+      },
+      {
+        $lookup: {
+          from: 'posts',
+          localField: '_id',
+          foreignField: 'creator',
+          as: 'user_posts',
+        },
+      },
+      {
+        $unwind: '$user_posts',
+      },
+      {
+        $sort: { 'user_posts.created_at': -1 },
+      },
+      {
+        $group: {
+          _id: '$_id',
+          username: { $first: '$username' },
+          full_name: { $first: '$full_name' },
+          profile_picture: { $first: '$profile_picture' },
+          created_at: { $first: '$created_at' },
+          posts_count: { $first: '$posts_count' },
+          latest_post: { $first: '$user_posts' },
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          username: 1,
+          full_name: 1,
+          profile_picture: 1,
+          created_at: 1,
+          posts_count: 1,
+          latest_post: {
+            content: '$latest_post.content',
+            reacts_count: { $size: { $ifNull: ['$latest_post.reacts', []] } },
+            comments_count: { $size: { $ifNull: ['$latest_post.comments', []] } },
+            created_at: '$latest_post.created_at',
+          },
+        },
+      },
+      {
+        $sort: { posts_count: -1 }, // Sort users again by posts_count after the final projection
       },
     ]);
 
@@ -488,6 +524,8 @@ const getUsersWithMostPosts = async (res) => {
     console.error('Error:', error);
   }
 };
+
+
 
 
 
