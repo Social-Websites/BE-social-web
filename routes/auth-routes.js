@@ -8,6 +8,7 @@ const router = express.Router();
 router.get("/refresh", AuthController.refresh);
 
 router.post("/login", AuthController.login);
+router.post("/alogin", AuthController.aLogin);
 router.get("/logout", AuthController.logout);
 
 //Quên mật khẩu

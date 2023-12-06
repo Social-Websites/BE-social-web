@@ -1,8 +1,12 @@
 const express = require("express");
 const adminController = require("../controllers/admin-controller");
 const { check } = require("express-validator");
+const tokenHandler = require("../middlewares/token-handler");
 
 const router = express.Router();
+
+// routes need access token
+router.use(tokenHandler.verifyAdminAccessToken);
 
 //Thống kê
 router.get("/statistic", async (req, res) => {

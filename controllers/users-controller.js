@@ -13,6 +13,7 @@ const getUser = async (req, res, next) => {
       full_name: 1,
       friends: 1,
       user_info: { bio: 1 },
+      admin: 1,
     });
     res.json({ user: user });
   } catch (errors) {
