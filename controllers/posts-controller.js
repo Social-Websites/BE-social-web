@@ -263,6 +263,13 @@ const getHomePosts = async (req, res, next) => {
         as: "creator",
       })
       .unwind("creator")
+      .match({
+        "creator.deleted_by": { $exists: false },
+        $or: [
+          { "creator.banned": false },
+          { "creator.banned": { $exists: false } },
+        ],
+      })
       .addFields({
         is_user_liked: {
           $in: [new mongoose.Types.ObjectId(userId), "$reacts.user"],
@@ -373,7 +380,7 @@ const getUserPosts = async (req, res, next) => {
       await user.populate({
         path: "posts",
         match: {
-          $or: [{ deleted_by: { $exists: false } }, { deleted_by: "ADMIN" }],
+          deleted_by: { $exists: false },
           $or: [{ banned: false }, { banned: { $exists: false } }],
         },
         options: {

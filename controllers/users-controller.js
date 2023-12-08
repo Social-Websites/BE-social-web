@@ -159,6 +159,7 @@ const getUserFriendsListByUsername = async (req, res, next) => {
       banned: false,
     }).populate({
       path: "friends",
+      match: { $or: [{ banned: false }, { banned: { $exists: false } }] },
       select: "username full_name profile_picture",
       options: {
         limit: limit,
@@ -213,6 +214,7 @@ const getFriendRequestsList = async (req, res, next) => {
     // Tìm user theo userId và populate friend_requests
     const user = await User.findOne({ _id: userId, banned: false }).populate({
       path: "friend_requests",
+      match: { $or: [{ banned: false }, { banned: { $exists: false } }] },
       select: "username full_name profile_picture",
       options: {
         limit: limit,
