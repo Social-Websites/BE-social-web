@@ -60,7 +60,7 @@ const verifyAccessToken = async (req, res, next) => {
 
     const isValidPassword = decodedToken.pw.trim() === user.password.trim();
 
-    if (!isValidPassword) {
+    if (!isValidPassword || user.banned) {
       const cookies = req.cookies;
       if (cookies?.jwt) {
         req.cookies = null;
@@ -72,10 +72,10 @@ const verifyAccessToken = async (req, res, next) => {
       }
       const error = new HttpError("Phiên hoạt động hết hạn!", 401);
       return next(error);
+    } else {
+      req.userData = decodedToken;
+      next();
     }
-
-    req.userData = decodedToken;
-    next();
   } catch (err) {
     console.log("1---access---------------------: ", err);
     const error = new HttpError("Có lỗi khi xác thực!", 500);
@@ -119,10 +119,10 @@ const verifyAdminAccessToken = async (req, res, next) => {
       }
       const error = new HttpError("Phiên hoạt động hết hạn!", 401);
       return next(error);
+    } else {
+      req.userData = decodedToken;
+      next();
     }
-
-    req.userData = decodedToken;
-    next();
   } catch (err) {
     console.log("1---access---------------------: ", err);
     const error = new HttpError("Có lỗi khi xác thực!", 500);

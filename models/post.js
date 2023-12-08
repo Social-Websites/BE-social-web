@@ -29,6 +29,7 @@ const postSchema = new Schema(
     shared_by: { type: Types.ObjectId, ref: "User" },
     original_post: { type: Types.ObjectId, ref: "Post" },
     deleted_by: { type: String, enum: ["ADMIN", "USER"] },
+    banned: { type: Boolean, required: true, default: false },
   },
   {
     timestamps: { createdAt: "created_at", updatedAt: "updated_at" },

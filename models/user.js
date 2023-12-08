@@ -47,6 +47,7 @@ const userSchema = new Schema(
     user_info: userInfoSchema,
     profile_picture: { type: String, trim: true, default: "" },
     posts: [{ type: Types.ObjectId, ref: "Post" }],
+    deleted_posts: [{ type: Types.ObjectId, ref: "Post" }],
     friend_requests: [{ type: Types.ObjectId, ref: "User" }],
     friend_requests_sent: [{ type: Types.ObjectId, ref: "User" }],
     friends: [{ type: Types.ObjectId, ref: "User" }],

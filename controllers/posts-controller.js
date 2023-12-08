@@ -67,13 +67,16 @@ const reactPost = async (req, res, next) => {
   let message;
 
   try {
-    const user = await User.findById(userId);
+    const user = await User.findOne({ _id: userId, banned: false });
     if (!user) {
       const error = new HttpError("Không tìm thấy user!", 404);
       return next(error);
     }
 
-    const post = await Post.findById(postId, { reacts: 1 });
+    const post = await Post.findOne(
+      { _id: postId, deleted_by: undefined },
+      { reacts: 1 }
+    );
     if (!post) {
       const error = new HttpError(
         "Không tìm thấy post với id được cung cấp!",
@@ -119,10 +122,10 @@ const deletePost = async (req, res, next) => {
 
   let post;
   try {
-    post = await Post.findById(postId, { creator: 1 }).populate(
-      "creator",
-      "posts"
-    );
+    post = await Post.findOne(
+      { _id: postId, deleted_by: undefined },
+      { creator: 1 }
+    ).populate("creator", "posts deleted_posts");
   } catch (err) {
     console.log("Bài viết xóa 1===============: ", err);
     const error = new HttpError(
@@ -145,8 +148,10 @@ const deletePost = async (req, res, next) => {
   try {
     const sess = await mongoose.startSession();
     sess.startTransaction();
-    await post.deleteOne({ session: sess });
+    post.deleted_by = "USER";
+    await post.save({ session: sess });
     post.creator.posts.pull(post);
+    post.creator.deleted_posts.push(post);
     await post.creator.save({ session: sess });
     await sess.commitTransaction();
   } catch (err) {
@@ -166,7 +171,10 @@ const getSinglePost = async (req, res, next) => {
 
   try {
     const post = await Post.aggregate()
-      .match({ _id: new mongoose.Types.ObjectId(postId) })
+      .match({
+        _id: new mongoose.Types.ObjectId(postId),
+        deleted_by: { $exists: false },
+      })
       .lookup({
         from: "users",
         localField: "creator",
@@ -245,6 +253,8 @@ const getHomePosts = async (req, res, next) => {
           ],
           $nin: blockListIds.map((id) => new mongoose.Types.ObjectId(id)),
         },
+        deleted_by: { $exists: false },
+        $or: [{ banned: false }, { banned: { $exists: false } }],
       })
       .lookup({
         from: "users",
@@ -337,9 +347,10 @@ const getUserPosts = async (req, res, next) => {
   const limit = Math.max(15, parseInt(req.query.limit)) || 15; // Số lượng bài viết mỗi trang (mặc định là 15)
 
   try {
-    const user = await User.findOne({ username: username }).select(
-      "friends block_list posts"
-    );
+    const user = await User.findOne({
+      username: username,
+      banned: false,
+    }).select("friends block_list posts");
 
     if (!user) {
       const error = new HttpError("Không tìm thấy người dùng!", 404);
@@ -361,6 +372,10 @@ const getUserPosts = async (req, res, next) => {
       // Nếu userId không nằm trong blockList, sử dụng populate để lấy danh sách bài viết
       await user.populate({
         path: "posts",
+        match: {
+          $or: [{ deleted_by: { $exists: false } }, { deleted_by: "ADMIN" }],
+          $or: [{ banned: false }, { banned: { $exists: false } }],
+        },
         options: {
           sort: { created_at: -1 },
           skip: (page - 1) * limit,
@@ -375,6 +390,8 @@ const getUserPosts = async (req, res, next) => {
         created_at: post.created_at,
         media: post.media,
         content: post.content,
+        banned: post.banned,
+        deleted_by: post?.deleted_by ? post?.deleted_by : "",
       }));
 
       res.status(200).json({ posts: posts });
@@ -466,7 +483,14 @@ const comment = async (req, res, next) => {
       return next(error);
     }
 
-    const post = await Post.findById(postId, { comments: 1 });
+    const post = await Post.findOne(
+      {
+        _id: postId,
+        deleted_by: { $exists: false },
+        $or: [{ banned: false }, { banned: { $exists: false } }],
+      },
+      { comments: 1 }
+    );
     if (!post) {
       const error = new HttpError("Không tìm thấy post!", 404);
       return next(error);

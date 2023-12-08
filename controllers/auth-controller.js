@@ -274,6 +274,11 @@ const refresh = async (req, res, next) => {
       return next(error);
     }
 
+    if (existingUser.banned) {
+      const error = new HttpError("Tài khoản đã bị khóa!", 403);
+      return next(error);
+    }
+
     accessToken = tokenHandler.generateToken(existingUser, "access", "7h");
   } catch (err) {
     const error = new HttpError("Có lỗi xảy ra, vui lòng thử lại sau!", 500);
@@ -309,7 +314,7 @@ const sendResetVerification = async (req, res, next) => {
   }
 
   if (!existingUser) {
-    const error = new HttpError("Tên tài khoản hoặc email không tồn tại!", 401);
+    const error = new HttpError("Tên tài khoản hoặc email không tồn tại!", 404);
     return next(error);
   }
 

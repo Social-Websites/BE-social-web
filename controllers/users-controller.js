@@ -7,14 +7,23 @@ const getUser = async (req, res, next) => {
   const userId = req.userData.id;
   console.log(userId); // ID của người dùng
   try {
-    const user = await User.findById(userId, {
-      username: 1,
-      profile_picture: 1,
-      full_name: 1,
-      friends: 1,
-      user_info: { bio: 1 },
-      admin: 1,
-    });
+    const user = await User.findOne(
+      { _id: userId, banned: false },
+      {
+        username: 1,
+        profile_picture: 1,
+        full_name: 1,
+        friends: 1,
+        user_info: { bio: 1 },
+        admin: 1,
+      }
+    );
+
+    if (!user) {
+      const error = new HttpError("Không tìm thấy user!", 404);
+      return next(error);
+    }
+
     res.json({ user: user });
   } catch (errors) {
     const error = new HttpError(
@@ -30,10 +39,19 @@ const getSuggestedUsers = async (req, res, next) => {
 
   try {
     // Lấy danh sách id của bạn bè của người dùng
-    const user = await User.findById(userId, {
-      friends: 1,
-      friend_requests_sent: 1,
-    });
+    const user = await User.findOne(
+      { _id: userId, banned: false },
+      {
+        friends: 1,
+        friend_requests_sent: 1,
+      }
+    );
+
+    if (!user) {
+      const error = new HttpError("Không tìm thấy user!", 404);
+      return next(error);
+    }
+
     const friendIds = user.friends;
     const friendRequestsSent = user.friend_requests_sent;
 
@@ -48,32 +66,10 @@ const getSuggestedUsers = async (req, res, next) => {
           ],
         },
         admin: false,
+        $or: [{ banned: false }, { banned: { $exists: false } }],
       })
       .sample(5)
       .project({ _id: 1, username: 1, profile_picture: 1, full_name: 1 });
-    //   [
-    //   {
-    //     $match: {
-    //       _id: {
-    //         $nin: [
-    //           ...friendIds,
-    //           ...friendRequestsSent,
-    //           new mongoose.Types.ObjectId(userId),
-    //         ],
-    //       },
-    //       admin: false,
-    //     },
-    //   },
-    //   { $sample: { size: 5 } },
-    //   {
-    //     $project: {
-    //       _id: 1,
-    //       username: 1,
-    //       profile_picture: 1,
-    //       full_name: 1,
-    //     },
-    //   },
-    // ]);
 
     res.json({ suggested_users: suggestedUsers });
   } catch (err) {
@@ -91,10 +87,25 @@ const getUserByUsername = async (req, res, next) => {
   const username = req.params.username;
 
   try {
-    const user = await User.findOne({ username: username });
+    const user = await User.findOne({ username: username, banned: false })
+      .populate({
+        path: "friends",
+        match: { banned: false },
+        select: "_id",
+      })
+      .populate({
+        path: "friend_requests",
+        match: { banned: false },
+        select: "_id",
+      })
+      .populate({
+        path: "posts",
+        match: { deleted_by: undefined },
+        select: "_id",
+      });
 
     if (!user) {
-      const error = new HttpError("Người dùng không tồn tại", 404);
+      const error = new HttpError("Không tìm thấy người dùng!", 404);
       return next(error);
     }
 
@@ -102,8 +113,10 @@ const getUserByUsername = async (req, res, next) => {
     const isFriend = user.friends.includes(userId);
     const isFriendRequestSent = user.friend_requests.includes(userId);
 
-    // Tính toán số lượng bài viết, số lượng bạn bè, và số lượng yêu cầu kết bạn
-    const postsCount = user.posts.length;
+    // Tính toán số lượng bài viết
+    let postsCount = user.posts.length;
+
+    // Tính toán số lượng bạn bè và số lượng yêu cầu kết bạn
     const friendsCount = user.friends.length;
     const friendRequestsCount = user.friend_requests.length;
 
@@ -141,7 +154,10 @@ const getUserFriendsListByUsername = async (req, res, next) => {
   const limit = Math.max(20, parseInt(req.query.limit)) || 20;
 
   try {
-    const user = await User.findOne({ username: username }).populate({
+    const user = await User.findOne({
+      username: username,
+      banned: false,
+    }).populate({
       path: "friends",
       select: "username full_name profile_picture",
       options: {
@@ -195,7 +211,7 @@ const getFriendRequestsList = async (req, res, next) => {
 
   try {
     // Tìm user theo userId và populate friend_requests
-    const user = await User.findById(userId).populate({
+    const user = await User.findOne({ _id: userId, banned: false }).populate({
       path: "friend_requests",
       select: "username full_name profile_picture",
       options: {
@@ -226,8 +242,12 @@ const sendAddFriendRequest = async (req, res, next) => {
 
   try {
     const [user, userToSend] = await Promise.all([
-      User.findById(userId).select("friend_requests_sent"),
-      User.findById(userIdToSend).select("friend_requests"),
+      User.findOne({ _id: userId, banned: false }).select(
+        "friend_requests_sent"
+      ),
+      User.findOne({ _id: userIdToSend, banned: false }).select(
+        "friend_requests"
+      ),
     ]);
     if (!user) {
       const error = new HttpError("Không tìm thấy user!", 404);
@@ -264,8 +284,12 @@ const acceptAddFriendRequest = async (req, res, next) => {
 
   try {
     const [user, userToAdd] = await Promise.all([
-      User.findById(userId).select("friends friend_requests"),
-      User.findById(userIdToAdd).select("friends friend_requests_sent"),
+      User.findOne({ _id: userId, banned: false }).select(
+        "friends friend_requests"
+      ),
+      User.findOne({ _id: userIdToAdd, banned: false }).select(
+        "friends friend_requests_sent"
+      ),
     ]);
     if (!user) {
       const error = new HttpError("Không tìm thấy user!", 404);
@@ -306,8 +330,12 @@ const removeAddFriendRequest = async (req, res, next) => {
 
   try {
     const [user, userToRemove] = await Promise.all([
-      User.findById(userId).select("friend_requests_sent"),
-      User.findById(userIdToRemove).select("friend_requests"),
+      User.findOne({ _id: userId, banned: false }).select(
+        "friend_requests_sent"
+      ),
+      User.findOne({ _id: userIdToRemove, banned: false }).select(
+        "friend_requests"
+      ),
     ]);
     if (!user) {
       const error = new HttpError("Không tìm thấy user!", 404);
@@ -350,8 +378,10 @@ const rejectAddFriendRequest = async (req, res, next) => {
 
   try {
     const [user, userToReject] = await Promise.all([
-      User.findById(userId).select("friend_requests"),
-      User.findById(userIdToReject).select("friend_requests_sent"),
+      User.findOne({ _id: userId, banned: false }).select("friend_requests"),
+      User.findOne({ _id: userIdToReject, banned: false }).select(
+        "friend_requests_sent"
+      ),
     ]);
     if (!user) {
       const error = new HttpError("Không tìm thấy user!", 404);
@@ -388,8 +418,8 @@ const unFriend = async (req, res, next) => {
 
   try {
     const [user, friend] = await Promise.all([
-      User.findById(userId).select("friends"),
-      User.findById(friendId).select("friends"),
+      User.findOne({ _id: userId, banned: false }).select("friends"),
+      User.findOne({ _id: friendId, banned: false }).select("friends"),
     ]);
 
     if (!user || !friend) {
@@ -427,10 +457,15 @@ const searchUsers = async (req, res, next) => {
     const regex = new RegExp(searchText, "i");
     if (searchText) {
       const users = await User.find({
-        $or: [
-          { username: regex },
-          { full_name: regex },
-          { search_keyword: regex },
+        $and: [
+          {
+            $or: [
+              { username: regex },
+              { full_name: regex },
+              { search_keyword: regex },
+            ],
+          },
+          { banned: false, admin: false },
         ],
       }).limit(50); // Giới hạn trả về 50 kết quả
       res.json(users);
@@ -444,9 +479,9 @@ const searchUsers = async (req, res, next) => {
 
 const updateUserFields = async (userId, updateFields) => {
   try {
-    // Sử dụng findByIdAndUpdate để cập nhật nhiều trường
-    const user = await User.findByIdAndUpdate(
-      userId,
+    // Sử dụng findOneAndUpdate để cập nhật nhiều trường
+    const user = await User.findOneAndUpdate(
+      { _id: userId, banned: false },
       { $set: updateFields },
       { new: true }
     );
@@ -506,11 +541,10 @@ const updateProfile = async (req, res, next) => {
   const validUpdateFields = getValidFields(updateFields, validFields);
 
   if (Object.keys(validUpdateFields).length === 0) {
-    const error = new HttpError("Các trường gửi đi không hợp lệ!", 400);
+    const error = new HttpError("Các trường nhập vào không hợp lệ!", 422);
     return next(error);
   }
   const transformedFields = transformObjectFields(validUpdateFields);
-  console.log(transformedFields);
 
   try {
     const user = await updateUserFields(userId, transformedFields);
@@ -527,15 +561,14 @@ const updatePassword = async (req, res, next) => {
   try {
     const existingUser = await User.findOne({
       _id: userId,
+      banned: false,
       admin: false,
     }).select("+password");
 
     if (!existingUser) {
-      const error = new HttpError("Người dùng không tồn tại!", 401);
+      const error = new HttpError("Người dùng không tồn tại!", 404);
       return next(error);
     }
-
-    console.log(existingUser);
 
     const isValidPassword = await existingUser.comparePassword(oldPass);
 
