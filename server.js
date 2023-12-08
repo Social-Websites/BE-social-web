@@ -103,6 +103,8 @@ DBconnect(() => {
           content = " accept your friend request";
         } else if (type == "reject") {
           content = " reject your friend request";
+        } else if (type == "hide") {
+          content = " admin deleted your post";
         }
 
         if (type == "remove") {
@@ -222,3 +224,5 @@ app.use((error, req, res, next) => {
   res.status(error.code || 500);
   res.json({ message: error.message || "Lỗi không xác định!" });
 });
+
+
