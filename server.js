@@ -26,7 +26,7 @@ app.use(helmet());
 app.use(morgan("combined"));
 
 const corsOptions = {
-  origin: "https://fe-social-web.vercel.app/",
+  origin: "https://fe-social-web.vercel.app",
   credentials: true,
 };
 app.use(cors(corsOptions));
@@ -42,7 +42,7 @@ DBconnect(() => {
   });
   const io = new Server(server, {
     cors : {
-      origin: "https://fe-social-web.vercel.app/",
+      origin: "https://fe-social-web.vercel.app",
     }
   });
   global.onlineUsers = new Map();
