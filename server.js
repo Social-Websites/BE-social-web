@@ -25,8 +25,16 @@ app.use(helmet());
 // HTTP  logger
 app.use(morgan("combined"));
 
+const allowedOrigins = ["https://nestme-ins.onrender.com"];
+
 const corsOptions = {
-  origin: "https://fe-social-web.vercel.app/",
+  origin: (origin, callback) => {
+    if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
+      callback(null, true);
+    } else {
+      callback(new Error("Not allowed by CORS hihihihi!"));
+    }
+  },
   credentials: true,
 };
 app.use(cors(corsOptions));
@@ -41,31 +49,34 @@ DBconnect(() => {
     console.log(`app is running on port ${process.env.PORT}`);
   });
   const io = new Server(server, {
-    cors : {
-      origin: "https://fe-social-web.vercel.app/",
-    }
+    cors: {
+      origin: "https://nestme-ins.onrender.com",
+    },
   });
   global.onlineUsers = new Map();
   io.on("connection", (socket) => {
     //console.log(socket);
     global.chatSocket = socket;
-    
-    socket.on("add-user", async (userId) => { 
+
+    socket.on("add-user", async (userId) => {
       onlineUsers.set(userId, socket.id);
       onlineUsers.forEach((value, key) => {
         console.log(`Key: ${key}, Value: ${value}`);
       });
       console.log("User connect");
-      await User.findByIdAndUpdate({ _id: userId}, { $set: {online: true}})
-      socket.broadcast.emit("getOnlineUser", {user_id: userId});
-      socket.on("disconnect", async () => { 
+      await User.findByIdAndUpdate({ _id: userId }, { $set: { online: true } });
+      socket.broadcast.emit("getOnlineUser", { user_id: userId });
+      socket.on("disconnect", async () => {
         console.log("User disconnect");
         onlineUsers.delete(userId);
-        await User.findByIdAndUpdate({ _id: userId}, { $set: {online: false}})
-        socket.broadcast.emit("getOfflineUser", {user_id: userId});
+        await User.findByIdAndUpdate(
+          { _id: userId },
+          { $set: { online: false } }
+        );
+        socket.broadcast.emit("getOfflineUser", { user_id: userId });
       });
     });
-    socket.on("send-msg", (data) => { 
+    socket.on("send-msg", (data) => {
       const recieveIds = data.recieve_ids;
       recieveIds.forEach((recieveId) => {
         const sendUserSocket = onlineUsers.get(recieveId);
@@ -76,82 +87,109 @@ DBconnect(() => {
       });
     });
 
-    socket.on("sendNotification", ({ sender_id, receiver_id, content_id, reponse, type }) => {
-      let content = ""
-      if(type == "like"){
-        content = " liked your post";
-      } else if(type == "comment"){
+    socket.on(
+      "sendNotification",
+      ({ sender_id, receiver_id, content_id, reponse, type }) => {
+        let content = "";
+        if (type == "like") {
+          content = " liked your post";
+        } else if (type == "comment") {
           content = " comment on your post";
-      } else if(type == "post"){
+        } else if (type == "post") {
           content = " create the post";
-      } else if(type == "request"){
-        content = " send you a friend request";
-      } else if(type == "accept"){
-        content = " accept your friend request";
-      } else if(type == "reject"){
-        content = " reject your friend request";
-      }
-
-      if(type == "remove"){
-        const requested = Notification.findOne({ sender_id, content_id }).exec();
-        requested.then((notification) => {
-          const recieveIds = receiver_id;
-            recieveIds.forEach( async (reciever) => {
-              const sendUserSocket = onlineUsers.get(reciever);
-                const data = {content_id: notification._id, remove: true};
-                if (sendUserSocket) {
-                  console.log("da gui cho " + sendUserSocket);
-                  socket.to(sendUserSocket).emit("getNotification", data);
-                  await Notification.deleteOne({ _id: notification._id }).exec();
-                }
-            });
-        });
-      } else{
-        if(reponse){
-          const requested = Notification.findOne({ sender_id: receiver_id[0], content_id, reponse: null}).exec();
-          requested.then(async (notification) => {
-            await Notification.deleteOne({ _id: notification._id }).exec();
-          });   
+        } else if (type == "request") {
+          content = " send you a friend request";
+        } else if (type == "accept") {
+          content = " accept your friend request";
+        } else if (type == "reject") {
+          content = " reject your friend request";
         }
-        const liked = Notification.findOne({ sender_id, content_id }).exec();
-        liked.then((check) => {
-          console.log(check);
-          if (check == null || type != "like") {
+
+        if (type == "remove") {
+          const requested = Notification.findOne({
+            sender_id,
+            content_id,
+          }).exec();
+          requested.then((notification) => {
             const recieveIds = receiver_id;
-            recieveIds.forEach( async (reciever) => {
-              const newNotification = new Notification({
-                user_id: reciever,
-                sender_id: sender_id,
-                content: content,
-                content_id: content_id,
-                reponse: reponse,
-                read: false
-              });
-            
-            // Lưu thông báo vào cơ sở dữ liệu
-            await newNotification.save()
-              .then(async (notification) => {
-                console.log("Thông báo đã được tạo:", notification);
-                const sendUserSocket = onlineUsers.get(reciever);
-                const sender = await User.findById(notification.sender_id).exec();
-                const data = {_id: notification._id, sender_id: notification.sender_id, senderName: sender.username, img: sender.profile_picture, content_id: notification.content_id, content: notification.content, reponse: reponse, read: false, createAt: notification.created_at};
-                
-                if (sendUserSocket) {
-                  console.log("da gui cho " + sendUserSocket);
-                  socket.to(sendUserSocket).emit("getNotification", data);
-                }
-              })
-              .catch((error) => {
-                console.error("Lỗi khi tạo thông báo:", error);
-              });
+            recieveIds.forEach(async (reciever) => {
+              const sendUserSocket = onlineUsers.get(reciever);
+              const data = { content_id: notification._id, remove: true };
+              if (sendUserSocket) {
+                console.log("da gui cho " + sendUserSocket);
+                socket.to(sendUserSocket).emit("getNotification", data);
+                await Notification.deleteOne({ _id: notification._id }).exec();
+              }
+            });
+          });
+        } else {
+          if (reponse) {
+            const requested = Notification.findOne({
+              sender_id: receiver_id[0],
+              content_id,
+              reponse: null,
+            }).exec();
+            requested.then(async (notification) => {
+              await Notification.deleteOne({ _id: notification._id }).exec();
             });
           }
-        }).catch((error) => {
-          console.error("Lỗi trong quá trình thực hiện tìm notification:", error);
-        });
+          const liked = Notification.findOne({ sender_id, content_id }).exec();
+          liked
+            .then((check) => {
+              console.log(check);
+              if (check == null || type != "like") {
+                const recieveIds = receiver_id;
+                recieveIds.forEach(async (reciever) => {
+                  const newNotification = new Notification({
+                    user_id: reciever,
+                    sender_id: sender_id,
+                    content: content,
+                    content_id: content_id,
+                    reponse: reponse,
+                    read: false,
+                  });
+
+                  // Lưu thông báo vào cơ sở dữ liệu
+                  await newNotification
+                    .save()
+                    .then(async (notification) => {
+                      console.log("Thông báo đã được tạo:", notification);
+                      const sendUserSocket = onlineUsers.get(reciever);
+                      const sender = await User.findById(
+                        notification.sender_id
+                      ).exec();
+                      const data = {
+                        _id: notification._id,
+                        sender_id: notification.sender_id,
+                        senderName: sender.username,
+                        img: sender.profile_picture,
+                        content_id: notification.content_id,
+                        content: notification.content,
+                        reponse: reponse,
+                        read: false,
+                        createAt: notification.created_at,
+                      };
+
+                      if (sendUserSocket) {
+                        console.log("da gui cho " + sendUserSocket);
+                        socket.to(sendUserSocket).emit("getNotification", data);
+                      }
+                    })
+                    .catch((error) => {
+                      console.error("Lỗi khi tạo thông báo:", error);
+                    });
+                });
+              }
+            })
+            .catch((error) => {
+              console.error(
+                "Lỗi trong quá trình thực hiện tìm notification:",
+                error
+              );
+            });
+        }
       }
-    });
-    
+    );
   });
 });
 
@@ -184,5 +222,3 @@ app.use((error, req, res, next) => {
   res.status(error.code || 500);
   res.json({ message: error.message || "Lỗi không xác định!" });
 });
-
-
