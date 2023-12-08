@@ -26,7 +26,7 @@ app.use(helmet());
 app.use(morgan("combined"));
 
 const corsOptions = {
-  origin: "http://localhost:3000",
+  origin: "https://fe-social-web.vercel.app/",
   credentials: true,
 };
 app.use(cors(corsOptions));
@@ -34,7 +34,7 @@ app.use(cookieParser());
 app.set("view engine", "pug");
 
 //ConnectDB
-const { DBconnect } = require("./configs/ConnectDB");
+const { DBconnect } = require("./configs/connectDB");
 const notification = require("./models/notification");
 DBconnect(() => {
   const server = app.listen(process.env.PORT, () => {
@@ -42,7 +42,7 @@ DBconnect(() => {
   });
   const io = new Server(server, {
     cors : {
-      origin: "http://localhost:3000",
+      origin: "https://fe-social-web.vercel.app/",
     }
   });
   global.onlineUsers = new Map();
