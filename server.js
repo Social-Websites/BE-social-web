@@ -25,7 +25,7 @@ app.use(helmet());
 // HTTP  logger
 app.use(morgan("combined"));
 
-const allowedOrigins = ["https://nestme-ins.onrender.com"];
+const allowedOrigins = ["https://nestme-ins.onrender.com", "http://localhost:3000"];
 
 const corsOptions = {
   origin: (origin, callback) => {
@@ -51,7 +51,7 @@ DBconnect(() => {
   });
   const io = new Server(server, {
     cors: {
-      origin: "https://nestme-ins.onrender.com",
+      origin: ["https://nestme-ins.onrender.com", "http://localhost:3000"],
     },
   });
   global.onlineUsers = new Map();
