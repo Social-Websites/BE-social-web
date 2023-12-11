@@ -91,18 +91,18 @@ const getUserByUsername = async (req, res, next) => {
       .populate({
         path: "friends",
         match: { banned: false },
-        select: "_id",
+        transform: (doc, id) => id
       })
       .populate({
         path: "friend_requests",
         match: { banned: false },
-        select: "_id",
+        transform: (doc, id) => id
       })
       .populate({
         path: "posts",
         match: { deleted_by: undefined },
-        select: "_id",
-      });
+        transform: (doc, id) => id
+      })
 
     if (!user) {
       const error = new HttpError("Không tìm thấy người dùng!", 404);
