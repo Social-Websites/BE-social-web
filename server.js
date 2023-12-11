@@ -88,6 +88,17 @@ DBconnect(() => {
       });
     });
 
+    socket.on("delete-msg", (data) => {
+      const recieveIds = data.recieve_ids;
+      recieveIds.forEach((recieveId) => {
+        const sendUserSocket = onlineUsers.get(recieveId);
+        if (sendUserSocket) {
+          socket.to(sendUserSocket).emit("msg-deleted", data);
+          console.log(sendUserSocket + "gui ne");
+        }
+      });
+    });
+
     socket.on(
       "sendNotification",
       ({ sender_id, receiver_id, content_id, reponse, type }) => {

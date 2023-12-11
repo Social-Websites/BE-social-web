@@ -33,12 +33,20 @@ class ConversationController {
           if (message && (message.reader.includes(userId) || message.sender == userId)) unread = false;
           else unread = true;
           if(message.sender != userId){
-            if(message.media.length == 0) last_message = message?.content;
-            else last_message = "Image";
+            if(message.removed === true){
+              last_message = "Tin nhắn đã được thu hồi";
+            } else {
+              if(message.media.length == 0) last_message = message?.content;
+              else last_message = "Image";
+            }
           }
           else{
-            if(message.media.length == 0) last_message = "You: " + message?.content;
-            else last_message = "You: Image";
+            if(message.removed === true){
+              last_message = "You: Tin nhắn đã được thu hồi";
+            } else {
+              if(message.media.length == 0) last_message = "You: " + message?.content;
+              else last_message = "You: Image";
+            }
           }
         }
         const userIds = [];
@@ -49,10 +57,10 @@ class ConversationController {
           userIds.push(user._id);
         }
         if(!conversation.is_group){
-          conversationInfo.push({_id: conversation._id, userIds: userIds, name: friends.full_name, img: friends.profile_picture, lastMsg: last_message, unread: unread, online: friends.online});
+          conversationInfo.push({_id: conversation._id, userIds: userIds, name: friends.full_name, img: friends.profile_picture, msg_id: conversation.last_message, lastMsg: last_message, unread: unread, online: friends.online});
         }
         else
-          conversationInfo.push({_id: conversation._id, userIds: userIds, name: conversation.name, img: conversation.avatar, lastMsg: last_message, unread: unread, online: true})
+          conversationInfo.push({_id: conversation._id, userIds: userIds, name: conversation.name, img: conversation.avatar, msg_id: conversation.last_message, lastMsg: last_message, unread: unread, online: true})
       }
 
       res.json(conversationInfo);
@@ -77,12 +85,20 @@ class ConversationController {
           if (message && (message.reader.includes(userId) || message.sender == userId)) unread = false;
           else unread = true;
           if(message.sender != userId){
-            if(message.media.length == 0) last_message = message?.content;
-            else last_message = "Image";
+            if(message.removed === true){
+              last_message = "Tin nhắn đã được thu hồi";
+            } else {
+              if(message.media.length == 0) last_message = message?.content;
+              else last_message = "Image";
+            }
           }
           else{
-            if(message.media.length == 0) last_message = "You: " + message?.content;
-            else last_message = "You: Image";
+            if(message.removed === true){
+              last_message = "You: Tin nhắn đã được thu hồi";
+            } else {
+              if(message.media.length == 0) last_message = "You: " + message?.content;
+              else last_message = "You: Image";
+            }
           }
         }
         const userIds = [];
@@ -93,10 +109,10 @@ class ConversationController {
           userIds.push(user._id);
         }
         if(!conversation.is_group){
-          conversationInfo={_id: conversation._id, userIds: userIds, name: friends.full_name, img: friends.profile_picture, lastMsg: last_message, unread: unread, online: friends.online};
+          conversationInfo={_id: conversation._id, userIds: userIds, name: friends.full_name, img: friends.profile_picture, msg_id: conversation.last_message, lastMsg: last_message, unread: unread, online: friends.online};
         }
         else
-          conversationInfo={_id: conversation._id, userIds: userIds, name: conversation.name, img: conversation.avatar, lastMsg: last_message, unread: unread, online: true};
+          conversationInfo={_id: conversation._id, userIds: userIds, name: conversation.name, img: conversation.avatar, msg_id: conversation.last_message, lastMsg: last_message, unread: unread, online: true};
       }
 
       res.json(conversationInfo);
@@ -164,14 +180,14 @@ class ConversationController {
       }).limit(10); // Giới hạn trả về 50 kết quả
       const userIds = users.map(user => user._id)
       console.log("userId" + userIds);
-      const firendId = userIds.filter(id => id != userId);
-      console.log("firendId" + firendId);
+      const firendIds = userIds.filter(id => id != userId);
+      console.log("firendId" + firendIds);
       const cons = await Conversation.find({
         $and: [
           { users: userId },
-          { users: { $in: userIds } }
+          { users: { $in: firendIds } }
         ] }).limit(20); // Giới hạn trả về 50 kết quả
-      console.log("Consvaersarion: " + cons);
+      console.log("Consvaersarion: " + cons.map(con => con._id));
       for (const conversation of cons) {
         let last_message = "";
         let unread;
@@ -180,12 +196,20 @@ class ConversationController {
           if (message && (message.reader.includes(userId) || message.sender == userId)) unread = false;
           else unread = true;
           if(message.sender != userId){
-            if(message.media.length == 0) last_message = message?.content;
-            else last_message = "Image";
+            if(message.removed === true){
+              last_message = "Tin nhắn đã được thu hồi";
+            } else {
+              if(message.media.length == 0) last_message = message?.content;
+              else last_message = "Image";
+            }
           }
           else{
-            if(message.media.length == 0) last_message = "You: " + message?.content;
-            else last_message = "You: Image";
+            if(message.removed === true){
+              last_message = "You: Tin nhắn đã được thu hồi";
+            } else {
+              if(message.media.length == 0) last_message = "You: " + message?.content;
+              else last_message = "You: Image";
+            }
           }
         }
         const userIds = [];
@@ -196,10 +220,10 @@ class ConversationController {
           userIds.push(user._id);
         }
         if(!conversation.is_group){
-          conversationInfo.push({_id: conversation._id, userIds: userIds, name: friends.full_name, img: friends.profile_picture, lastMsg: last_message, unread: unread, online: friends.online});
+          conversationInfo.push({_id: conversation._id, userIds: userIds, name: friends.full_name, img: friends.profile_picture, msg_id: conversation.last_message, lastMsg: last_message, unread: unread, online: friends.online});
         }
         else
-          conversationInfo.push({_id: conversation._id, userIds: userIds, name: conversation.name, img: conversation.avatar, lastMsg: last_message, unread: unread, online: true})
+          conversationInfo.push({_id: conversation._id, userIds: userIds, name: conversation.name, img: conversation.avatar, msg_id: conversation.last_message, lastMsg: last_message, unread: unread, online: true})
       }
 
       res.json(conversationInfo);

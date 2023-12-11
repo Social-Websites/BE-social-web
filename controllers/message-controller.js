@@ -18,8 +18,8 @@ class MessagesController {
       if(messages){
         for (const message of messages) {
           const sender = await User.findById(message.sender).exec();
-          messagesInfo.push({_id: message._id, sender_id:message.sender, name: sender.full_name, 
-            img: sender.profile_picture, content: message.content, media: message.media, createAt: message.created_at});
+          messagesInfo.push({_id: message._id, sender_id:message.sender, conversationId: message.conversation_id, name: sender.full_name, 
+            img: sender.profile_picture, content: message.content, media: message.media, removed: message.removed, createAt: message.created_at});
         }
       }
       res.json(messagesInfo.reverse());
@@ -57,6 +57,19 @@ class MessagesController {
       } else {
         res.json("Lỗi khi gửi message");
       }
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async deleteMessage(req, res, next) {
+    try {
+      const { messageId } = req.body;
+      await Messages.findOneAndUpdate(
+        { _id: messageId },
+        { $set: {removed: true}} 
+      );
+      res.json(true);
     } catch (error) {
       next(error);
     }
