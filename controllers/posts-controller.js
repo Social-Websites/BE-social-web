@@ -215,6 +215,7 @@ const getSinglePost = async (req, res, next) => {
       .match({
         _id: new mongoose.Types.ObjectId(postId),
         deleted_by: { $exists: false },
+        $or: [{ banned: false }, { banned: { $exists: false } }],
       })
       .lookup({
         from: "users",
@@ -486,7 +487,9 @@ const getPostComments = async (req, res, next) => {
   const limit = Math.max(30, parseInt(req.query.limit)) || 30; // Số lượng comments mỗi lần (mặc định là 30)
 
   try {
-    const user = await User.findById(userId).select("block_list");
+    const user = await User.findOne({ _id: userId, banned: false }).select(
+      "block_list"
+    );
 
     if (!user) {
       const error = new HttpError("Không tìm thấy người dùng!", 404);
@@ -550,7 +553,7 @@ const comment = async (req, res, next) => {
   const { postId, comment, urlStrings, reply_to } = req.body;
 
   try {
-    const user = await User.findById(userId);
+    const user = await User.findOne({ _id: userId, banned: false });
     if (!user) {
       const error = new HttpError("Không tìm thấy user!", 404);
       return next(error);
