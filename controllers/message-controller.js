@@ -9,12 +9,25 @@ class MessagesController {
     try{
       const conversationId = req.params.conversationId;
       const skip = parseInt(req.query.skip) || 0; // Số lượng tin nhắn đã lấy trước đó, mặc định là 0
-      const messages = await Messages.find({conversation_id: conversationId})
+      const userId = req.query.userId;
+      const conversation = await Conversation.findById(conversationId).exec();
+      let deleteTime = new Date(0, 0, 1);
+      const userDeleted = conversation?.is_deleted.find(obj => obj.user_id.toString() === userId)?.delete_at;
+      if(userDeleted){
+        deleteTime = userDeleted;
+      }
+      console.log(deleteTime,userDeleted, userId, conversation, conversationId);
+      const messages = await Messages.find(
+          {
+            conversation_id: conversationId,
+            created_at: { $gt: deleteTime }
+          }
+      )
       .sort({ created_at: -1 })
       .skip(skip) // Bỏ qua số lượng tin nhắn đã lấy trước đó
       .limit(20) // Giới hạn 20 tin nhắn
       .exec();
-
+      // console.log(messages);
       if(messages){
         for (const message of messages) {
           const sender = await User.findById(message.sender).exec();
@@ -26,6 +39,7 @@ class MessagesController {
     }
      catch (error) {
       next(error);
+      console.log(error);
     }
     
   }
