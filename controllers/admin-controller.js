@@ -309,10 +309,27 @@ const getPaginatedPosts = async (req, res) => {
         },
       },
       {
+        $lookup: {
+          from: "reported_users",
+          let: { userId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $eq: ["$user", "$$userId"],
+                },
+              },
+            },
+          ],
+          as: "reports",
+        },
+      },
+      {
         $addFields: {
           creator: { $arrayElemAt: ["$creator", 0] },
           reacts_count: { $size: "$reacts" },
           comments_count: { $size: "$comments" },
+          reports_count: { $size: "$reports" },
         },
       },
       {
@@ -338,6 +355,7 @@ const getPaginatedPosts = async (req, res) => {
           "creator.friends": 0,
           "creator.self_lock": 0,
           "creator.search_keyword": 0,
+          reports: 0,
         },
       },
       {
@@ -410,6 +428,56 @@ const unDeletePostByAdmin = async (req, res) => {
     return res
       .status(500)
       .json({ message: "Đã xảy ra lỗi trong quá trình xóa bài viết." });
+  }
+};
+
+const banPostByAdmin = async (req, res, next) => {
+  const postId = req.params.postId;
+  const newBannedValue = true;
+
+  try {
+    const updatedPost = await Post.findOneAndUpdate(
+      { _id: postId },
+      { $set: { banned: newBannedValue } },
+      { new: true }
+    );
+
+    if (!updatedPost) {
+      return res
+        .status(404)
+        .json({ message: "Không tìm thấy bài viết để cấm." });
+    }
+    return res
+      .status(200)
+      .json({ message: "Bài viết đã được cấm thành công." });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ message: "Đã xảy ra lỗi trong quá trình cấm bài viết." });
+  }
+};
+
+const unBanPostByAdmin = async (req, res, next) => {
+  const postId = req.params.postId;
+  const newBannedValue = false;
+
+  try {
+    const updatedPost = await Post.findOneAndUpdate(
+      { _id: postId },
+      { $set: { banned: newBannedValue } },
+      { new: true }
+    );
+
+    if (!updatedPost) {
+      return res.status(404).json({ message: "Không tìm thấy bài viết" });
+    }
+    return res
+      .status(200)
+      .json({ message: "Bài viết đã được mở cấm thành công." });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ message: "Đã xảy ra lỗi trong quá trình bỏ cấm bài viết." });
   }
 };
 
@@ -556,6 +624,8 @@ exports.getWeeklyOverviewCombined = getWeeklyOverviewCombined;
 exports.getPaginatedPosts = getPaginatedPosts;
 exports.deletePostByAdmin = deletePostByAdmin;
 exports.unDeletePostByAdmin = unDeletePostByAdmin;
+exports.banPostByAdmin = banPostByAdmin;
+exports.unBanPostByAdmin = unBanPostByAdmin;
 //Quản lý user
 exports.getUserPaginated = getUserPaginated;
 exports.banUser = banUser;
