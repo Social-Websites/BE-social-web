@@ -26,6 +26,8 @@ app.use(helmet());
 // HTTP  logger
 app.use(morgan("combined"));
 
+const allowedOrigins = [process.env.ORIGIN_BASE];
+
 const corsOptions = {
   origin: (origin, callback) => {
     if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
@@ -49,7 +51,7 @@ DBconnect(() => {
   });
   const io = new Server(server, {
     cors: {
-      origin: allowedOrigins,
+      origin: [process.env.ORIGIN_BASE],
     },
   });
   global.onlineUsers = new Map();
@@ -70,7 +72,7 @@ DBconnect(() => {
         onlineUsers.delete(userId);
         await User.findByIdAndUpdate(
           { _id: userId },
-          { $set: { online: false } }
+          { $set: { online: false, last_online: Date.now() } }
         );
         socket.broadcast.emit("getOfflineUser", { user_id: userId });
       });
@@ -81,6 +83,17 @@ DBconnect(() => {
         const sendUserSocket = onlineUsers.get(recieveId);
         if (sendUserSocket) {
           socket.to(sendUserSocket).emit("msg-recieve", data);
+          console.log(sendUserSocket + "gui ne");
+        }
+      });
+    });
+
+    socket.on("return-chat", (data) => {
+      const recieveIds = data.recieve_ids;
+      recieveIds.forEach((recieveId) => {
+        const sendUserSocket = onlineUsers.get(recieveId);
+        if (sendUserSocket) {
+          socket.to(sendUserSocket).emit("return-recieve", data);
           console.log(sendUserSocket + "gui ne");
         }
       });

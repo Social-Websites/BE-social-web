@@ -12,6 +12,11 @@ const conversationSchema = new Schema({
   created_by: { type: Types.ObjectId, ref: "User" },
   admins: [{ type: Types.ObjectId, ref: "User" }],
   avatar: { type: String },
+  is_deleted: [{
+    user_id: {type: Types.ObjectId, ref: "User" },
+    deleted: { type: Boolean, required: true },
+    delete_at: { type: Date }
+  }],
 }, {
   timestamps: { createdAt: "created_at", updatedAt: "updated_at" }
 });
