@@ -167,9 +167,26 @@ const getUserPaginated = async (req, res) => {
         },
       },
       {
+        $lookup: {
+          from: "reported_users",
+          let: { userId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $eq: ["$user", "$$userId"],
+                },
+              },
+            },
+          ],
+          as: "reports",
+        },
+      },
+      {
         $addFields: {
           friends_count: { $size: "$friends" },
           posts_count: { $size: "$posts" },
+          reports_count: { $size: "$reports" },
         },
       },
       {
@@ -181,6 +198,7 @@ const getUserPaginated = async (req, res) => {
           conversations: 0,
           friends: 0,
           posts: 0,
+          reports: 0,
         },
       },
     ]);
