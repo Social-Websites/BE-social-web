@@ -3,6 +3,7 @@ const HttpError = require("./models/http-error");
 const { Server } = require("socket.io");
 const User = require("./models/user");
 const Notification = require("./models/notification");
+const allowedOrigins = require("./configs/allowedOrigin");
 
 const session = require("express-session");
 const morgan = require("morgan");
@@ -25,8 +26,6 @@ app.use(helmet());
 // HTTP  logger
 app.use(morgan("combined"));
 
-const allowedOrigins = ["https://nestme-ins.onrender.com", "http://localhost:3000"];
-
 const corsOptions = {
   origin: (origin, callback) => {
     if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
@@ -36,7 +35,6 @@ const corsOptions = {
     }
   },
   credentials: true,
-
 };
 app.use(cors(corsOptions));
 app.use(cookieParser());
@@ -51,7 +49,7 @@ DBconnect(() => {
   });
   const io = new Server(server, {
     cors: {
-      origin: ["https://nestme-ins.onrender.com", "http://localhost:3000"],
+      origin: allowedOrigins,
     },
   });
   global.onlineUsers = new Map();
@@ -236,5 +234,3 @@ app.use((error, req, res, next) => {
   res.status(error.code || 500);
   res.json({ message: error.message || "Lỗi không xác định!" });
 });
-
-

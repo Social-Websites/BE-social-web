@@ -54,6 +54,15 @@ router.post(
   PostController.comment
 );
 
+router.post(
+  "/report",
+  [
+    check("postId").notEmpty().withMessage("Không có postId!"),
+    check("reason").notEmpty().withMessage("Không có reason!"),
+  ],
+  PostController.reportPost
+);
+
 router.patch(
   "/react/:postId",
   [check("emoji").not().isEmpty()],

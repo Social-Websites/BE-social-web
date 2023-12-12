@@ -1,6 +1,8 @@
 const mongoose = require("mongoose");
 const HttpError = require("../models/http-error");
 const Post = require("../models/post");
+const React = require("../models/react");
+const ReportedPost = require("../models/reported_post");
 const User = require("../models/user");
 const Comment = require("../models/comment");
 const { validationResult } = require("express-validator");
@@ -14,7 +16,7 @@ const createPost = async (req, res, next) => {
 
   let user;
   try {
-    user = await User.findById(userId);
+    user = await User.findOne({ _id: userId, banned: false });
     if (!user) {
       const error = new HttpError("Không tìm thấy user!", 404);
       return next(error);
@@ -55,6 +57,41 @@ const createPost = async (req, res, next) => {
   res.status(201).json({ post: newPost });
 };
 
+const handleNewReact = async (user, post, emoji) => {
+  const newReact = new React({
+    reacted_by: user._id,
+    post: post._id,
+    emoji: emoji,
+  });
+  try {
+    const sess = await mongoose.startSession();
+    sess.startTransaction();
+
+    await newReact.save({ session: sess });
+    post.reacts.push(newReact);
+    await post.save({ timestamps: false, session: sess });
+    await sess.commitTransaction();
+  } catch (err) {
+    throw err;
+  }
+};
+
+const handleExistingReact = async (react, post, emoji) => {
+  try {
+    if (react.emoji === emoji) {
+      // Hủy tương tác
+      const sess = await mongoose.startSession();
+      sess.startTransaction();
+      post.reacts.pull(react);
+      await react.deleteOne({ session: sess });
+      await post.save({ timestamps: false, session: sess });
+      await sess.commitTransaction();
+    }
+  } catch (err) {
+    throw err;
+  }
+};
+
 const reactPost = async (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -67,16 +104,20 @@ const reactPost = async (req, res, next) => {
   let message;
 
   try {
-    const user = await User.findOne({ _id: userId, banned: false });
+    const [user, post, react] = await Promise.all([
+      User.findOne({ _id: userId, banned: false }).select("_id"),
+      Post.findOne({
+        _id: postId,
+        deleted_by: { $exists: false },
+        $or: [{ banned: false }, { banned: { $exists: false } }],
+      }).select("reacts"),
+      React.findOne({ reacted_by: userId, post: postId }),
+    ]);
+
     if (!user) {
       const error = new HttpError("Không tìm thấy user!", 404);
       return next(error);
     }
-
-    const post = await Post.findOne(
-      { _id: postId, deleted_by: undefined },
-      { reacts: 1 }
-    );
     if (!post) {
       const error = new HttpError(
         "Không tìm thấy post với id được cung cấp!",
@@ -85,28 +126,28 @@ const reactPost = async (req, res, next) => {
       return next(error);
     }
 
-    const existingReactIndex = post.reacts.findIndex(
-      (react) => react.user.toString() === user._id.toString()
-    );
-
-    if (existingReactIndex === -1) {
+    if (!react) {
       // Nếu chưa tương tác, thêm một react mới
-      post.reacts.push({ user: userId, emoji: emoji });
+      await handleNewReact(user, post, emoji);
+
       message = "Like bài viết thành công!";
     } else {
       // Nếu đã tương tác, kiểm tra emoji
-      if (post.reacts[existingReactIndex].emoji === emoji) {
+      if (react.emoji === emoji) {
         // Nếu emoji giống nhau, hủy tương tác
-        post.reacts.splice(existingReactIndex, 1);
+        console.log("================= hủy");
+        await handleExistingReact(react, post, emoji);
+
         message = "Hủy emoji thành công!";
       } else {
         // Nếu emoji khác nhau, cập nhật emoji
-        post.reacts[existingReactIndex].emoji = emoji;
+        console.log("============= đổi");
+        react.emoji = emoji;
+        await react.save();
+
         message = "Đổi emoji thành công!";
       }
     }
-
-    await post.save({ timestamps: false });
   } catch (err) {
     console.log("React 1===============: ", err);
     const error = new HttpError("Có lỗi khi tương tác, vui lòng thử lại!", 500);
@@ -182,9 +223,15 @@ const getSinglePost = async (req, res, next) => {
         as: "creator",
       })
       .unwind("creator")
+      .lookup({
+        from: "reacts",
+        localField: "reacts",
+        foreignField: "_id",
+        as: "reacts",
+      })
       .addFields({
         is_user_liked: {
-          $in: [new mongoose.Types.ObjectId(userId), "$reacts.user"],
+          $in: [new mongoose.Types.ObjectId(userId), "$reacts.reacted_by"],
         },
         reacts_count: { $size: "$reacts" },
         comments_count: { $size: "$comments" },
@@ -232,7 +279,9 @@ const getHomePosts = async (req, res, next) => {
   const limit = Math.max(10, parseInt(req.query.limit)) || 10; // Số lượng bài viết mỗi trang (mặc định là 10)
 
   try {
-    const user = await User.findById(userId).select("friends block_list");
+    const user = await User.findOne({ _id: userId, banned: false }).select(
+      "friends block_list"
+    );
 
     if (!user) {
       const error = new HttpError("Không tìm thấy người dùng!", 404);
@@ -270,9 +319,15 @@ const getHomePosts = async (req, res, next) => {
           { "creator.banned": { $exists: false } },
         ],
       })
+      .lookup({
+        from: "reacts",
+        localField: "reacts",
+        foreignField: "_id",
+        as: "reacts",
+      })
       .addFields({
         is_user_liked: {
-          $in: [new mongoose.Types.ObjectId(userId), "$reacts.user"],
+          $in: [new mongoose.Types.ObjectId(userId), "$reacts.reacted_by"],
         },
         reacts_count: { $size: "$reacts" },
         comments_count: { $size: "$comments" },
@@ -390,16 +445,27 @@ const getUserPosts = async (req, res, next) => {
         },
       });
 
-      const posts = user.posts.map((post) => ({
-        _id: post._id,
-        reacts_count: post.reacts.length,
-        comments_count: post.comments.length,
-        created_at: post.created_at,
-        media: post.media,
-        content: post.content,
-        banned: post.banned,
-        deleted_by: post?.deleted_by ? post?.deleted_by : "",
-      }));
+      const posts = await Promise.all(
+        user.posts.map(async (post) => {
+          // Kiểm tra xem có phản ứng nào từ người dùng không
+          const is_user_liked = await React.exists({
+            post: post._id,
+            reacted_by: userId,
+          });
+
+          return {
+            _id: post._id,
+            reacts_count: post.reacts.length,
+            comments_count: post.comments.length,
+            created_at: post.created_at,
+            media: post.media,
+            content: post.content,
+            banned: post.banned,
+            deleted_by: post?.deleted_by ? post?.deleted_by : "",
+            is_user_liked: is_user_liked,
+          };
+        })
+      );
 
       res.status(200).json({ posts: posts });
     }
@@ -588,6 +654,60 @@ const deleteComment = async (req, res, next) => {
   res.status(200).json({ message: "Xóa comment thành công!" });
 };
 
+const reportPost = async (req, res, next) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return next(new HttpError("Giá trị nhập vào không hợp lệ!", 422));
+  }
+  const userId = req.userData.id;
+  const { postId, reason } = req.body;
+
+  try {
+    const [user, post, reportedPost] = await Promise.all([
+      User.findOne({ _id: userId, banned: false }).select("_id"),
+      Post.findOne({
+        _id: postId,
+        deleted_by: { $exists: false },
+        $or: [{ banned: false }, { banned: { $exists: false } }],
+      }).select("creator"),
+      ReportedPost.findOne({ reported_by: userId, post: postId }),
+    ]);
+
+    if (!user) {
+      const error = new HttpError("Không tìm thấy user!", 404);
+      return next(error);
+    }
+
+    if (!post) {
+      const error = new HttpError("Không tìm thấy post!", 404);
+      return next(error);
+    }
+
+    if (reportedPost) {
+      // Nếu đã tồn tại ReportedPost, cập nhật reason mới
+      reportedPost.reason = reason;
+      await reportedPost.save();
+    } else {
+      // Nếu chưa tồn tại ReportedPost, tạo mới
+      const newReport = new ReportedPost({
+        reported_by: user._id,
+        post: post._id,
+        reason: reason,
+      });
+      await newReport.save();
+    }
+
+    res.status(200).json({ message: "Báo cáo bài viết thành công!" });
+  } catch (err) {
+    console.log("Báo cáo lỗi: ", err);
+    const error = new HttpError(
+      "Có lỗi báo cáo bài viết, vui lòng thử lại!",
+      500
+    );
+    return next(error);
+  }
+};
+
 exports.createPost = createPost;
 exports.getHomePosts = getHomePosts;
 exports.getPostComments = getPostComments;
@@ -597,3 +717,4 @@ exports.reactPost = reactPost;
 exports.comment = comment;
 exports.getUserPosts = getUserPosts;
 exports.getSinglePost = getSinglePost;
+exports.reportPost = reportPost;

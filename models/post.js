@@ -14,15 +14,7 @@ const postSchema = new Schema(
       enum: ["PUBLIC", "GROUP", "FRIENDS", "PRIVATE"],
       default: "PUBLIC",
     },
-    reacts: [
-      {
-        user: { type: Types.ObjectId, required: true, ref: "User" },
-        emoji: {
-          type: String,
-          enum: ["LIKE", "HAHA", "LOVE", "WOW", "SAD", "ANGRY"],
-        },
-      },
-    ],
+    reacts: [{ type: Types.ObjectId, ref: "React" }],
     comments: [{ type: Types.ObjectId, ref: "Comment" }],
     has_read: [{ type: Types.ObjectId, ref: "User" }],
     edit_at: { type: Date },
