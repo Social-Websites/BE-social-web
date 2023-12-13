@@ -18,6 +18,11 @@ router.get("/post", async (req, res) => {
   await AdminController.getPaginatedPosts(req, res);
 });
 
+router.get(
+  "/posts/:postId/reports-count",
+  AdminController.countReportedPostsByPostAndGroupByReason
+);
+
 router.put("/post/lock/:postId", AdminController.banPostByAdmin);
 router.put("/post/unlock/:postId", AdminController.unBanPostByAdmin);
 //USER

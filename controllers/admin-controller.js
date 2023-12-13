@@ -2,6 +2,7 @@ const User = require("../models/user");
 const Post = require("../models/post");
 const { validationResult } = require("express-validator");
 const removeVietnameseTones = require("../util/removeVietnameseTones");
+const HttpError = require("../models/http-error");
 
 const getWeeklyOverviewCombined = async (res) => {
   try {
@@ -310,13 +311,13 @@ const getPaginatedPosts = async (req, res) => {
       },
       {
         $lookup: {
-          from: "reported_users",
-          let: { userId: "$_id" },
+          from: "reported_posts",
+          let: { postId: "$_id" },
           pipeline: [
             {
               $match: {
                 $expr: {
-                  $eq: ["$user", "$$userId"],
+                  $eq: ["$post", "$$postId"],
                 },
               },
             },
@@ -481,6 +482,40 @@ const unBanPostByAdmin = async (req, res, next) => {
   }
 };
 
+const countReportedPostsByPostAndGroupByReason = async (req, res, next) => {
+  const postId = req.params.postId;
+
+  try {
+    const countByReason = await ReportedPost.aggregate([
+      { $match: { post: Types.ObjectId(postId) } },
+      {
+        $group: {
+          _id: "$reason",
+          count: { $sum: 1 },
+        },
+      },
+      {
+        $match: { count: { $gt: 0 } },
+      },
+      {
+        $project: {
+          _id: 0,
+          reason: "$_id",
+          count: 1,
+        },
+      },
+    ]);
+
+    res.json({ reports_group_count: countByReason });
+  } catch (err) {
+    const error = new HttpError(
+      "Có lỗi trong quá trình lấy lên reports, vui lòng thử lại sau!",
+      500
+    );
+    return next(error);
+  }
+};
+
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
 const addUser = async (req, res, next) => {
@@ -626,6 +661,8 @@ exports.deletePostByAdmin = deletePostByAdmin;
 exports.unDeletePostByAdmin = unDeletePostByAdmin;
 exports.banPostByAdmin = banPostByAdmin;
 exports.unBanPostByAdmin = unBanPostByAdmin;
+exports.countReportedPostsByPostAndGroupByReason =
+  countReportedPostsByPostAndGroupByReason;
 //Quản lý user
 exports.getUserPaginated = getUserPaginated;
 exports.banUser = banUser;
