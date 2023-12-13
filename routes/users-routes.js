@@ -15,6 +15,16 @@ router.get("/suggested", UsersController.getSuggestedUsers);
 router.get("/:username", UsersController.getUserByUsername);
 router.get("/:username/friends", UsersController.getUserFriendsListByUsername);
 router.get("/auth-user/friend-requests", UsersController.getFriendRequestsList);
+
+router.post(
+  "/report",
+  [
+    check("userReportId").notEmpty().withMessage("Không có userReportId!"),
+    check("reason").notEmpty().withMessage("Không có reason!"),
+  ],
+  UsersController.reportUser
+);
+
 router.patch("/auth-user", UsersController.updateProfile);
 router.patch("/auth-user/change-pass", UsersController.updatePassword);
 router.patch("/auth-user/unfriend/:friendId", UsersController.unFriend);

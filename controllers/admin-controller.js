@@ -1,7 +1,11 @@
+const mongoose = require("mongoose");
 const User = require("../models/user");
 const Post = require("../models/post");
+const ReportedPost = require("../models/reported_post");
+const ReportedUser = require("../models/reported_user");
 const { validationResult } = require("express-validator");
 const removeVietnameseTones = require("../util/removeVietnameseTones");
+const HttpError = require("../models/http-error");
 
 const getWeeklyOverviewCombined = async (res) => {
   try {
@@ -219,6 +223,40 @@ const getUserPaginated = async (req, res) => {
   }
 };
 
+const countReportedUsersByUserAndGroupByReason = async (req, res, next) => {
+  const userId = req.params.userId;
+
+  try {
+    const countByReason = await ReportedUser.aggregate([
+      { $match: { user: new mongoose.Types.ObjectId(userId) } },
+      {
+        $group: {
+          _id: "$reason",
+          count: { $sum: 1 },
+        },
+      },
+      {
+        $match: { count: { $gt: 0 } },
+      },
+      {
+        $project: {
+          _id: 0,
+          reason: "$_id",
+          count: 1,
+        },
+      },
+    ]);
+
+    res.json({ reports_group_count: countByReason });
+  } catch (err) {
+    const error = new HttpError(
+      "Có lỗi trong quá trình lấy lên reports, vui lòng thử lại sau!",
+      500
+    );
+    return next(error);
+  }
+};
+
 const banUser = async (req, res) => {
   const userIdToBan = req.params.userId;
 
@@ -309,10 +347,27 @@ const getPaginatedPosts = async (req, res) => {
         },
       },
       {
+        $lookup: {
+          from: "reported_posts",
+          let: { postId: "$_id" },
+          pipeline: [
+            {
+              $match: {
+                $expr: {
+                  $eq: ["$post", "$$postId"],
+                },
+              },
+            },
+          ],
+          as: "reports",
+        },
+      },
+      {
         $addFields: {
           creator: { $arrayElemAt: ["$creator", 0] },
           reacts_count: { $size: "$reacts" },
           comments_count: { $size: "$comments" },
+          reports_count: { $size: "$reports" },
         },
       },
       {
@@ -338,6 +393,7 @@ const getPaginatedPosts = async (req, res) => {
           "creator.friends": 0,
           "creator.self_lock": 0,
           "creator.search_keyword": 0,
+          reports: 0,
         },
       },
       {
@@ -410,6 +466,91 @@ const unDeletePostByAdmin = async (req, res) => {
     return res
       .status(500)
       .json({ message: "Đã xảy ra lỗi trong quá trình xóa bài viết." });
+  }
+};
+
+const banPostByAdmin = async (req, res, next) => {
+  const postId = req.params.postId;
+  const newBannedValue = true;
+
+  try {
+    const updatedPost = await Post.findOneAndUpdate(
+      { _id: postId },
+      { $set: { banned: newBannedValue } },
+      { new: true }
+    );
+
+    if (!updatedPost) {
+      return res
+        .status(404)
+        .json({ message: "Không tìm thấy bài viết để cấm." });
+    }
+    return res
+      .status(200)
+      .json({ message: "Bài viết đã được cấm thành công." });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ message: "Đã xảy ra lỗi trong quá trình cấm bài viết." });
+  }
+};
+
+const unBanPostByAdmin = async (req, res, next) => {
+  const postId = req.params.postId;
+  const newBannedValue = false;
+
+  try {
+    const updatedPost = await Post.findOneAndUpdate(
+      { _id: postId },
+      { $set: { banned: newBannedValue } },
+      { new: true }
+    );
+
+    if (!updatedPost) {
+      return res.status(404).json({ message: "Không tìm thấy bài viết" });
+    }
+    return res
+      .status(200)
+      .json({ message: "Bài viết đã được mở cấm thành công." });
+  } catch (error) {
+    return res
+      .status(500)
+      .json({ message: "Đã xảy ra lỗi trong quá trình bỏ cấm bài viết." });
+  }
+};
+
+const countReportedPostsByPostAndGroupByReason = async (req, res, next) => {
+  const postId = req.params.postId;
+
+  try {
+    const countByReason = await ReportedPost.aggregate([
+      { $match: { post: new mongoose.Types.ObjectId(postId) } },
+      {
+        $group: {
+          _id: "$reason",
+          count: { $sum: 1 },
+        },
+      },
+      {
+        $match: { count: { $gt: 0 } },
+      },
+      {
+        $project: {
+          _id: 0,
+          reason: "$_id",
+          count: 1,
+        },
+      },
+    ]);
+
+    res.json({ reports_group_count: countByReason });
+  } catch (err) {
+    console.error("=============== count reports: ", err);
+    const error = new HttpError(
+      "Có lỗi trong quá trình lấy lên reports, vui lòng thử lại sau!",
+      500
+    );
+    return next(error);
   }
 };
 
@@ -556,9 +697,15 @@ exports.getWeeklyOverviewCombined = getWeeklyOverviewCombined;
 exports.getPaginatedPosts = getPaginatedPosts;
 exports.deletePostByAdmin = deletePostByAdmin;
 exports.unDeletePostByAdmin = unDeletePostByAdmin;
+exports.banPostByAdmin = banPostByAdmin;
+exports.unBanPostByAdmin = unBanPostByAdmin;
+exports.countReportedPostsByPostAndGroupByReason =
+  countReportedPostsByPostAndGroupByReason;
 //Quản lý user
 exports.getUserPaginated = getUserPaginated;
 exports.banUser = banUser;
 exports.unbanUser = unbanUser;
 exports.getUsersWithMostPosts = getUsersWithMostPosts;
 exports.addUser = addUser;
+exports.countReportedUsersByUserAndGroupByReason =
+  countReportedUsersByUserAndGroupByReason;

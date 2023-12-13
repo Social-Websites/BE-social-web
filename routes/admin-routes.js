@@ -1,5 +1,5 @@
 const express = require("express");
-const adminController = require("../controllers/admin-controller");
+const AdminController = require("../controllers/admin-controller");
 const { check } = require("express-validator");
 const tokenHandler = require("../middlewares/token-handler");
 
@@ -10,20 +10,21 @@ router.use(tokenHandler.verifyAdminAccessToken);
 
 //Thống kê
 router.get("/statistic", async (req, res) => {
-  await adminController.getWeeklyOverviewCombined(res);
+  await AdminController.getWeeklyOverviewCombined(res);
 });
 
 //POST
 router.get("/post", async (req, res) => {
-  await adminController.getPaginatedPosts(req, res);
+  await AdminController.getPaginatedPosts(req, res);
 });
 
-router.put("/post/lock/:postId", async (req, res) => {
-  await adminController.deletePostByAdmin(req, res);
-});
-router.put("/post/unlock/:postId", async (req, res) => {
-  await adminController.unDeletePostByAdmin(req, res);
-});
+router.get(
+  "/posts/:postId/reports-count",
+  AdminController.countReportedPostsByPostAndGroupByReason
+);
+
+router.put("/post/lock/:postId", AdminController.banPostByAdmin);
+router.put("/post/unlock/:postId", AdminController.unBanPostByAdmin);
 //USER
 router.post(
   "/users",
@@ -36,23 +37,28 @@ router.post(
       .isBoolean()
       .withMessage("Giá trị trường admin không phải boolean!"),
   ],
-  adminController.addUser
+  AdminController.addUser
 );
 
 router.get("/user", async (req, res) => {
-  await adminController.getUserPaginated(req, res);
+  await AdminController.getUserPaginated(req, res);
 });
 
+router.get(
+  "/users/:userId/reports-count",
+  AdminController.countReportedUsersByUserAndGroupByReason
+);
+
 router.get("/user/mostpost", async (req, res) => {
-  await adminController.getUsersWithMostPosts(res);
+  await AdminController.getUsersWithMostPosts(res);
 });
 
 router.put("/user/ban/:userId", async (req, res) => {
-  await adminController.banUser(req, res);
+  await AdminController.banUser(req, res);
 });
 
 router.put("/user/unban/:userId", async (req, res) => {
-  await adminController.unbanUser(req, res);
+  await AdminController.unbanUser(req, res);
 });
 
 module.exports = router;

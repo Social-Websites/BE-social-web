@@ -1,7 +1,9 @@
 const mongoose = require("mongoose");
 const HttpError = require("../models/http-error");
 const User = require("../models/user");
+const ReportedUser = require("../models/reported_user");
 const { getValidFields } = require("../util/validators");
+const { validationResult } = require("express-validator");
 
 const getUser = async (req, res, next) => {
   const userId = req.userData.id;
@@ -91,18 +93,18 @@ const getUserByUsername = async (req, res, next) => {
       .populate({
         path: "friends",
         match: { banned: false },
-        transform: (doc, id) => id
+        transform: (doc, id) => id,
       })
       .populate({
         path: "friend_requests",
         match: { banned: false },
-        transform: (doc, id) => id
+        transform: (doc, id) => id,
       })
       .populate({
         path: "posts",
         match: { deleted_by: undefined },
-        transform: (doc, id) => id
-      })
+        transform: (doc, id) => id,
+      });
 
     if (!user) {
       const error = new HttpError("Không tìm thấy người dùng!", 404);
@@ -593,6 +595,64 @@ const updatePassword = async (req, res, next) => {
   res.json({ message: "Đổi mật khẩu thành công!" });
 };
 
+const reportUser = async (req, res, next) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return next(new HttpError("Giá trị nhập vào không hợp lệ!", 422));
+  }
+  const userId = req.userData.id;
+  const { userReportId, reason } = req.body;
+
+  try {
+    const [user, userReport, reportedUser] = await Promise.all([
+      User.findOne({
+        _id: userId,
+        deleted_by: { $exists: false },
+        banned: false,
+      }).select("_id"),
+      User.findOne({
+        _id: userReportId,
+        deleted_by: { $exists: false },
+        banned: false,
+      }).select("_id"),
+      ReportedUser.findOne({ reported_by: userId, user: userReportId }),
+    ]);
+
+    if (!user) {
+      const error = new HttpError("Không tìm thấy user!", 404);
+      return next(error);
+    }
+
+    if (!userReport) {
+      const error = new HttpError("Không tìm thấy user cần report!", 404);
+      return next(error);
+    }
+
+    if (reportedUser) {
+      // Nếu đã tồn tại reportedUser, cập nhật reason mới
+      reportedUser.reason = reason;
+      await reportedUser.save();
+    } else {
+      // Nếu chưa tồn tại reportedUser, tạo mới
+      const newReport = new ReportedUser({
+        reported_by: user._id,
+        user: userReport._id,
+        reason: reason,
+      });
+      await newReport.save();
+    }
+
+    res.status(200).json({ message: "Báo cáo người dùng thành công!" });
+  } catch (err) {
+    console.log("Báo cáo lỗi: ", err);
+    const error = new HttpError(
+      "Có lỗi báo cáo người dùng, vui lòng thử lại!",
+      500
+    );
+    return next(error);
+  }
+};
+
 exports.searchUsers = searchUsers;
 exports.getUser = getUser;
 exports.getUserByUsername = getUserByUsername;
@@ -606,3 +666,4 @@ exports.unFriend = unFriend;
 exports.updateProfile = updateProfile;
 exports.updatePassword = updatePassword;
 exports.getSuggestedUsers = getSuggestedUsers;
+exports.reportUser = reportUser;

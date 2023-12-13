@@ -26,8 +26,6 @@ app.use(helmet());
 // HTTP  logger
 app.use(morgan("combined"));
 
-// const allowedOrigins = [process.env.ORIGIN_BASE];
-
 const corsOptions = {
   origin: (origin, callback) => {
     if (allowedOrigins.indexOf(origin) !== -1 || !origin) {
@@ -51,7 +49,7 @@ DBconnect(() => {
   });
   const io = new Server(server, {
     cors: {
-      origin: [process.env.ORIGIN_BASE],
+      origin: allowedOrigins,
     },
   });
   global.onlineUsers = new Map();
