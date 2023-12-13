@@ -127,7 +127,7 @@ DBconnect(() => {
         } else if (type == "hide") {
           content = " admin deleted your post";
         }
-
+        
         if (type == "remove") {
           const requested = Notification.findOne({
             sender_id,
@@ -137,23 +137,23 @@ DBconnect(() => {
             const recieveIds = receiver_id;
             recieveIds.forEach(async (reciever) => {
               const sendUserSocket = onlineUsers.get(reciever);
-              const data = { content_id: notification._id, remove: true };
+              const data = { content_id: notification?._id, remove: true };
               if (sendUserSocket) {
                 console.log("da gui cho " + sendUserSocket);
                 socket.to(sendUserSocket).emit("getNotification", data);
-                await Notification.deleteOne({ _id: notification._id }).exec();
+                await Notification.deleteOne({ _id: notification?._id }).exec();
               }
             });
           });
         } else {
-          if (reponse) {
+          if (reponse !== null) {
             const requested = Notification.findOne({
               sender_id: receiver_id[0],
               content_id,
               reponse: null,
             }).exec();
             requested.then(async (notification) => {
-              await Notification.deleteOne({ _id: notification._id }).exec();
+              await Notification.deleteOne({ _id: notification?._id }).exec();
             });
           }
           const liked = Notification.findOne({ sender_id, content_id }).exec();
@@ -163,18 +163,19 @@ DBconnect(() => {
               if (check == null || type != "like") {
                 const recieveIds = receiver_id;
                 recieveIds.forEach(async (reciever) => {
-                  const newNotification = new Notification({
-                    user_id: reciever,
-                    sender_id: sender_id,
-                    content: content,
-                    content_id: content_id,
-                    reponse: reponse,
-                    read: false,
-                  });
-
-                  // Lưu thông báo vào cơ sở dữ liệu
-                  await newNotification
-                    .save()
+                  if(type != "reject" && sender_id != reciever){
+                    const newNotification = new Notification({
+                      user_id: reciever,
+                      sender_id: sender_id,
+                      content: content,
+                      content_id: content_id,
+                      reponse: reponse,
+                      read: false,
+                    });
+                    
+                    
+                    // Lưu thông báo vào cơ sở dữ liệu
+                    await newNotification.save()
                     .then(async (notification) => {
                       console.log("Thông báo đã được tạo:", notification);
                       const sendUserSocket = onlineUsers.get(reciever);
@@ -201,6 +202,7 @@ DBconnect(() => {
                     .catch((error) => {
                       console.error("Lỗi khi tạo thông báo:", error);
                     });
+                  }
                 });
               }
             })

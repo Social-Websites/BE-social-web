@@ -151,6 +151,9 @@ class ConversationController {
         isGroup = true;
       }
 
+
+      
+
       // Tạo mới đối tượng Conversation
       const conversation = new Conversation({
         users: userIds, // Các người dùng tham gia cuộc trò chuyện
@@ -166,6 +169,8 @@ class ConversationController {
       // Lưu cuộc trò chuyện vào cơ sở dữ liệu
       const savedConversation = await conversation.save();
 
+      const conversationInfo={_id: conversation._id, online: users[0].online, last_online: users[0].last_online};
+
       // Thêm ID cuộc trò chuyện vào danh sách conversations của từng người dùng
       for (const user of users) {
         if (!user.conversations) {
@@ -175,7 +180,7 @@ class ConversationController {
         await user.save();
       }
 
-      res.json(savedConversation);
+      res.json(conversationInfo);
     } catch (error) {
       next(error);
     }

@@ -18,14 +18,15 @@ class NotificationsController {
         if(notifications){
             for (const notification of notifications) {
             const sender = await User.findById(notification.sender_id).exec();
-            notificationsInfo.push({_id: notification._id, sender_id: notification.sender_id, senderName: sender.username, 
-                img: sender.profile_picture, content_id: notification.content_id, content: notification.content, reponse: notification.reponse, read:notification.read, createAt: notification.created_at});
+            notificationsInfo.push({_id: notification._id, sender_id: notification.sender_id, senderName: sender?.username, 
+                img: sender?.profile_picture, content_id: notification.content_id, content: notification.content, reponse: notification.reponse, read:notification.read, createAt: notification.created_at});
             }
         }
         res.json(notificationsInfo);
         }
         catch (error) {
-        next(error);
+            next(error);
+            console.log(error);
         }
     }
 
