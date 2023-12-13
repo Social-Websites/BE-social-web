@@ -1,5 +1,8 @@
+const mongoose = require("mongoose");
 const User = require("../models/user");
 const Post = require("../models/post");
+const ReportedPost = require("../models/reported_post");
+const ReportedUser = require("../models/reported_user");
 const { validationResult } = require("express-validator");
 const removeVietnameseTones = require("../util/removeVietnameseTones");
 const HttpError = require("../models/http-error");
@@ -217,6 +220,40 @@ const getUserPaginated = async (req, res) => {
     res.status(500).json({
       message: "Encountered an error while retrieving paginated users",
     });
+  }
+};
+
+const countReportedUsersByUserAndGroupByReason = async (req, res, next) => {
+  const userId = req.params.userId;
+
+  try {
+    const countByReason = await ReportedUser.aggregate([
+      { $match: { user: new mongoose.Types.ObjectId(userId) } },
+      {
+        $group: {
+          _id: "$reason",
+          count: { $sum: 1 },
+        },
+      },
+      {
+        $match: { count: { $gt: 0 } },
+      },
+      {
+        $project: {
+          _id: 0,
+          reason: "$_id",
+          count: 1,
+        },
+      },
+    ]);
+
+    res.json({ reports_group_count: countByReason });
+  } catch (err) {
+    const error = new HttpError(
+      "Có lỗi trong quá trình lấy lên reports, vui lòng thử lại sau!",
+      500
+    );
+    return next(error);
   }
 };
 
@@ -487,7 +524,7 @@ const countReportedPostsByPostAndGroupByReason = async (req, res, next) => {
 
   try {
     const countByReason = await ReportedPost.aggregate([
-      { $match: { post: Types.ObjectId(postId) } },
+      { $match: { post: new mongoose.Types.ObjectId(postId) } },
       {
         $group: {
           _id: "$reason",
@@ -508,6 +545,7 @@ const countReportedPostsByPostAndGroupByReason = async (req, res, next) => {
 
     res.json({ reports_group_count: countByReason });
   } catch (err) {
+    console.error("=============== count reports: ", err);
     const error = new HttpError(
       "Có lỗi trong quá trình lấy lên reports, vui lòng thử lại sau!",
       500
@@ -669,3 +707,5 @@ exports.banUser = banUser;
 exports.unbanUser = unbanUser;
 exports.getUsersWithMostPosts = getUsersWithMostPosts;
 exports.addUser = addUser;
+exports.countReportedUsersByUserAndGroupByReason =
+  countReportedUsersByUserAndGroupByReason;

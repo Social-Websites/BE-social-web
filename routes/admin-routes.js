@@ -44,6 +44,11 @@ router.get("/user", async (req, res) => {
   await AdminController.getUserPaginated(req, res);
 });
 
+router.get(
+  "/users/:userId/reports-count",
+  AdminController.countReportedUsersByUserAndGroupByReason
+);
+
 router.get("/user/mostpost", async (req, res) => {
   await AdminController.getUsersWithMostPosts(res);
 });
