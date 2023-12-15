@@ -6,14 +6,14 @@ const Notification = require("./models/notification");
 const allowedOrigins = require("./configs/allowedOrigin");
 
 const session = require("express-session");
-//const morgan = require("morgan");
+const morgan = require("morgan");
 const helmet = require("helmet");
 const compress = require("compression");
 const cors = require("cors");
 const bodyParser = require("body-parser");
 const cookieParser = require("cookie-parser");
 
-//require("dotenv").config();
+require("dotenv").config();
 
 const route = require("./routes/index");
 const app = express();
@@ -24,7 +24,7 @@ app.use(compress());
 // Use Helmet!
 app.use(helmet());
 // HTTP  logger
-//app.use(morgan("combined"));
+app.use(morgan("combined"));
 
 const corsOptions = {
   origin: (origin, callback) => {
