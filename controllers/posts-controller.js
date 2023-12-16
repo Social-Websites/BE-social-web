@@ -157,7 +157,89 @@ const reactPost = async (req, res, next) => {
   res.status(200).json({ message: message });
 };
 
-const deletePost = async (req, res, next) => {
+const savePost = async (req, res, next) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return next(new HttpError("Giá trị nhập vào không hợp lệ!", 422));
+  }
+  const userId = req.userData.id;
+  const postId = req.params.postId;
+  const save = req.body.save;
+
+  try {
+    const user = await User.findOne({ _id: userId, banned: false }).select(
+      "saved_posts"
+    );
+
+    if (!user) {
+      const error = new HttpError("Không tìm thấy user từ id cung cấp!", 404);
+      return next(error);
+    }
+
+    const post = await Post.findOne(
+      { _id: postId, deleted_by: undefined },
+      { creator: 1 }
+    ).populate("creator", "_id");
+
+    if (!post) {
+      const error = new HttpError(
+        "Không tìm thấy bài viết từ id cung cấp!",
+        404
+      );
+      return next(error);
+    }
+
+    // Kiểm tra và thêm trường saved_posts nếu không tồn tại
+    if (!user.saved_posts || !user.saved_posts.length) {
+      console.log("?????????????????????????");
+      user.saved_posts = [];
+    }
+
+    if (save) {
+      // Kiểm tra nếu bài viết đã được lưu trước đó
+      const existingSavedPost = user.saved_posts.find(
+        (savedPost) => savedPost.post.toString() === post._id.toString()
+      );
+      if (existingSavedPost) {
+        const error = new HttpError("Bài viết đã được lưu trước đó!", 400);
+        return next(error);
+      }
+
+      if (post.creator._id.toString() === userId) {
+        const error = new HttpError(
+          "Không thể lưu bài viết của bản thân!",
+          403
+        );
+        return next(error);
+      }
+
+      user.saved_posts.push({ post: post._id, saved_time: new Date() });
+    } else {
+      // Kiểm tra nếu bài viết chưa được lưu
+      const savedPostIndex = user.saved_posts.findIndex(
+        (savedPost) => savedPost.post.toString() === post._id.toString()
+      );
+      if (savedPostIndex === -1) {
+        const error = new HttpError("Bài viết chưa được lưu!", 400);
+        return next(error);
+      }
+
+      user.saved_posts.splice(savedPostIndex, 1);
+    }
+
+    await user.save();
+  } catch (err) {
+    console.log("Lỗi khi lưu/bỏ lưu bài viết: ", err);
+    const error = new HttpError(
+      "Có lỗi khi lưu/bỏ lưu bài viết, vui lòng thử lại!",
+      500
+    );
+    return next(error);
+  }
+  res.json({ message: "Cập nhật bài viết thành công!" });
+};
+
+const deletePost = async (req, res) => {
   const userId = req.userData.id;
   const postId = req.params.postId;
 
@@ -166,35 +248,23 @@ const deletePost = async (req, res, next) => {
     post = await Post.findOne(
       { _id: postId, deleted_by: undefined },
       { creator: 1 }
-    ).populate("creator", "posts deleted_posts");
-  } catch (err) {
-    console.log("Bài viết xóa 1===============: ", err);
-    const error = new HttpError(
-      "Có lỗi khi xóa bài viết, vui lòng thử lại!",
-      500
-    );
-    return next(error);
-  }
+    ).populate("creator", "posts");
 
-  if (!post) {
-    const error = new HttpError("Không tìm thấy bài viết từ id cung cấp!", 404);
-    return next(error);
-  }
+    if (!post) {
+      const error = new HttpError(
+        "Không tìm thấy bài viết từ id cung cấp!",
+        404
+      );
+      return next(error);
+    }
 
-  if (post.creator._id.toString() !== userId) {
-    const error = new HttpError("Người dùng không có quyền xóa!", 403);
-    return next(error);
-  }
+    if (post.creator._id.toString() !== userId) {
+      const error = new HttpError("Người dùng không có quyền xóa!", 403);
+      return next(error);
+    }
 
-  try {
-    const sess = await mongoose.startSession();
-    sess.startTransaction();
-    post.deleted_by = "USER";
-    await post.save({ session: sess });
-    post.creator.posts.pull(post);
-    post.creator.deleted_posts.push(post);
-    await post.creator.save({ session: sess });
-    await sess.commitTransaction();
+    post.deleted_by = { user: userId, user_role: "CREATOR" };
+    await post.save();
   } catch (err) {
     console.log("Bài viết xóa 2===============: ", err);
     const error = new HttpError(
@@ -203,7 +273,7 @@ const deletePost = async (req, res, next) => {
     );
     return next(error);
   }
-  res.status(200).json({ message: "Xóa bài viết thành công!" });
+  res.json({ message: "Xóa bài viết thành công!" });
 };
 
 const getSinglePost = async (req, res, next) => {
@@ -211,11 +281,24 @@ const getSinglePost = async (req, res, next) => {
   const postId = req.params.postId;
 
   try {
+    const user = await User.findOne({
+      _id: userId,
+      banned: false,
+    }).select("saved_posts block_list");
+
+    if (!user) {
+      const error = new HttpError("Không tìm thấy người dùng!", 404);
+      return next(error);
+    }
+
+    const savedPostIds = user.saved_posts.map((savedPost) => savedPost.post);
+
     const post = await Post.aggregate()
       .match({
         _id: new mongoose.Types.ObjectId(postId),
         deleted_by: { $exists: false },
         $or: [{ banned: false }, { banned: { $exists: false } }],
+        creator: { $nin: user.block_list },
       })
       .lookup({
         from: "users",
@@ -224,6 +307,13 @@ const getSinglePost = async (req, res, next) => {
         as: "creator",
       })
       .unwind("creator")
+      .match({
+        "creator.deleted_by": { $exists: false },
+        $or: [
+          { "creator.banned": false },
+          { "creator.banned": { $exists: false } },
+        ],
+      })
       .lookup({
         from: "reacts",
         localField: "reacts",
@@ -236,10 +326,14 @@ const getSinglePost = async (req, res, next) => {
         },
         reacts_count: { $size: "$reacts" },
         comments_count: { $size: "$comments" },
+        is_saved: {
+          $in: ["$_id", savedPostIds],
+        },
       })
       .project({
         creator: { _id: 1, username: 1, profile_picture: 1, block_list: 1 },
         is_user_liked: 1,
+        is_saved: 1,
         reacts_count: 1,
         comments_count: 1,
         updated_at: 1,
@@ -281,7 +375,7 @@ const getHomePosts = async (req, res, next) => {
 
   try {
     const user = await User.findOne({ _id: userId, banned: false }).select(
-      "friends block_list"
+      "friends block_list saved_posts"
     );
 
     if (!user) {
@@ -292,6 +386,8 @@ const getHomePosts = async (req, res, next) => {
     // Lấy danh sách ID của bạn bè và block_list
     const friendIds = user.friends.map((friend) => friend._id);
     const blockListIds = user.block_list.map((blockedUser) => blockedUser._id);
+
+    const savedPostIds = user.saved_posts.map((savedPost) => savedPost.post);
 
     // Lấy danh sách bài viết theo các điều kiện
     const posts = await Post.aggregate()
@@ -332,10 +428,14 @@ const getHomePosts = async (req, res, next) => {
         },
         reacts_count: { $size: "$reacts" },
         comments_count: { $size: "$comments" },
+        is_saved: {
+          $in: ["$_id", savedPostIds],
+        },
       })
       .project({
         creator: { _id: 1, username: 1, profile_picture: 1, block_list: 1 },
         is_user_liked: 1,
+        is_saved: 1,
         reacts_count: 1,
         comments_count: 1,
         updated_at: 1,
@@ -410,10 +510,18 @@ const getUserPosts = async (req, res, next) => {
   const limit = Math.max(15, parseInt(req.query.limit)) || 15; // Số lượng bài viết mỗi trang (mặc định là 15)
 
   try {
-    const user = await User.findOne({
-      username: username,
-      banned: false,
-    }).select("friends block_list posts");
+    const [authUser, user] = await Promise.all([
+      User.findOne({ _id: userId, banned: false }).select("saved_posts"),
+      User.findOne({
+        username: username,
+        banned: false,
+      }).select("friends block_list"),
+    ]);
+
+    if (!authUser) {
+      const error = new HttpError("Người xem không hợp lệ!", 404);
+      return next(error);
+    }
 
     if (!user) {
       const error = new HttpError("Không tìm thấy người dùng!", 404);
@@ -435,10 +543,6 @@ const getUserPosts = async (req, res, next) => {
       // Nếu userId không nằm trong blockList, sử dụng populate để lấy danh sách bài viết
       await user.populate({
         path: "posts",
-        match: {
-          deleted_by: { $exists: false },
-          $or: [{ banned: false }, { banned: { $exists: false } }],
-        },
         options: {
           sort: { created_at: -1 },
           skip: (page - 1) * limit,
@@ -446,15 +550,23 @@ const getUserPosts = async (req, res, next) => {
         },
       });
 
+      const savedPostIds = authUser.saved_posts.map((savedPost) =>
+        savedPost.post.toString()
+      );
+
       const posts = await Promise.all(
         user.posts.map(async (post) => {
           // Kiểm tra xem có phản ứng nào từ người dùng không
-          const is_user_liked = await React.exists({
+          const isUserLiked = await React.exists({
             post: post._id,
             reacted_by: userId,
-          });
+          })
+            .lean()
+            .then((react) => !!react);
 
-          return {
+          const isSaved = savedPostIds.includes(post._id.toString());
+
+          let returnPost = {
             _id: post._id,
             reacts_count: post.reacts.length,
             comments_count: post.comments.length,
@@ -462,18 +574,93 @@ const getUserPosts = async (req, res, next) => {
             media: post.media,
             content: post.content,
             banned: post.banned,
-            deleted_by: post?.deleted_by ? post?.deleted_by : "",
-            is_user_liked: is_user_liked,
+            is_user_liked: isUserLiked,
+            ...(Object.entries(post.deleted_by).length === 0 &&
+              post.deleted_by.constructor === Object && {
+                deleted_by: post.deleted_by,
+              }),
+            is_saved: isSaved,
           };
+
+          return returnPost;
         })
       );
 
-      res.status(200).json({ posts: posts });
+      res.json({ posts: posts });
     }
   } catch (err) {
     console.log("Bài viết 1===============: ", err);
     const error = new HttpError(
       "Có lỗi khi lấy bài viết, vui lòng thử lại!",
+      500
+    );
+    return next(error);
+  }
+};
+
+const getSavedPosts = async (req, res, next) => {
+  const userId = req.userData.id;
+  const page = Math.max(1, parseInt(req.query.page)) || 1; // Trang hiện tại (mặc định là 1)
+  const limit = Math.max(15, parseInt(req.query.limit)) || 15; // Số lượng bài viết mỗi trang (mặc định là 15)
+
+  try {
+    const user = await User.findOne({ _id: userId, banned: false }).select(
+      "saved_posts"
+    );
+    user.saved_posts.sort((a, b) => b.saved_time - a.saved_time);
+
+    console.log(user);
+
+    await user.populate({
+      path: "saved_posts.post",
+      match: {
+        deleted_by: { $exists: false },
+        $or: [{ banned: false }, { banned: { $exists: false } }],
+      },
+      options: { skip: (page - 1) * limit, limit: limit },
+    });
+
+    if (!user) {
+      const error = new HttpError("Không tìm thấy người dùng!", 404);
+      return next(error);
+    }
+
+    const savedPosts = await Promise.all(
+      user.saved_posts.map(async (savedPost) => {
+        const post = savedPost.post;
+
+        // Kiểm tra xem có phản ứng nào từ người dùng không
+        const isUserLiked = await React.exists({
+          post: post._id,
+          reacted_by: userId,
+        })
+          .lean()
+          .then((react) => !!react);
+
+        return {
+          _id: post._id,
+          reacts_count: post.reacts.length,
+          comments_count: post.comments.length,
+          created_at: post.created_at,
+          media: post.media,
+          content: post.content,
+          banned: post.banned,
+          saved_time: savedPost.saved_time,
+          is_user_liked: isUserLiked,
+          ...(Object.entries(post.deleted_by).length === 0 &&
+            post.deleted_by.constructor === Object && {
+              deleted_by: post.deleted_by,
+            }),
+          is_saved: true,
+        };
+      })
+    );
+
+    res.json({ saved_posts: savedPosts });
+  } catch (err) {
+    console.log("Lỗi khi lấy bài viết đã lưu: ", err);
+    const error = new HttpError(
+      "Có lỗi khi lấy bài viết đã lưu, vui lòng thử lại!",
       500
     );
     return next(error);
@@ -507,6 +694,7 @@ const getPostComments = async (req, res, next) => {
           $nin: blockListIds.map((id) => new mongoose.Types.ObjectId(id)),
         },
         cmt_level: 1,
+        deleted_by: { $exists: false },
       })
       .lookup({
         from: "users",
@@ -608,14 +796,13 @@ const deleteComment = async (req, res, next) => {
   const commentId = req.params.commentId;
 
   try {
-    const comment = await Comment.findById(commentId, {
-      user: 1,
-      post: 1,
-      cmt_level: 1,
-      mother_cmt: 1,
-    });
+    const comment = await Comment.findOne({
+      _id: commentId,
+      deleted_by: { $exists: false },
+    })
+      .select("user post cmt_level mother_cmt")
+      .populate("post", "creator");
 
-    console.log(comment);
     if (!comment) {
       const error = new HttpError(
         "Không tìm thấy comment từ id cung cấp!",
@@ -624,13 +811,31 @@ const deleteComment = async (req, res, next) => {
       return next(error);
     }
 
-    if (comment.user.toString() !== userId) {
+    if (
+      comment.user.toString() !== userId &&
+      comment.post.creator.toString() !== userId
+    ) {
       const error = new HttpError("Người dùng không có quyền xóa!", 403);
       return next(error);
     }
+
+    let deletedByRole = "USER";
+
+    // Kiểm tra xem user có phải là creator của post hay không
+    const postCreatorId = comment.post.creator.toString();
+    if (postCreatorId === userId) {
+      deletedByRole = "POST_CREATOR";
+    }
+
     const sess = await mongoose.startSession();
     sess.startTransaction();
-    await comment.deleteOne({ session: sess });
+    await comment.updateOne({
+      deleted_by: {
+        user: userId,
+        user_role: deletedByRole,
+      },
+    });
+
     await Post.updateOne(
       { _id: comment.post },
       { $pull: { comments: comment._id } },
@@ -654,7 +859,7 @@ const deleteComment = async (req, res, next) => {
     );
     return next(error);
   }
-  res.status(200).json({ message: "Xóa comment thành công!" });
+  res.json({ message: "Xóa comment thành công!" });
 };
 
 const reportPost = async (req, res, next) => {
@@ -721,3 +926,5 @@ exports.comment = comment;
 exports.getUserPosts = getUserPosts;
 exports.getSinglePost = getSinglePost;
 exports.reportPost = reportPost;
+exports.savePost = savePost;
+exports.getSavedPosts = getSavedPosts;

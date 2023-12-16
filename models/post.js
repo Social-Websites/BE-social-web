@@ -16,11 +16,15 @@ const postSchema = new Schema(
     },
     reacts: [{ type: Types.ObjectId, ref: "React" }],
     comments: [{ type: Types.ObjectId, ref: "Comment" }],
+    pinned_comments: [{ type: Types.ObjectId, ref: "Comment" }],
     has_read: [{ type: Types.ObjectId, ref: "User" }],
     edit_at: { type: Date },
     shared_by: { type: Types.ObjectId, ref: "User" },
     original_post: { type: Types.ObjectId, ref: "Post" },
-    deleted_by: { type: String, enum: ["ADMIN", "USER"] },
+    deleted_by: {
+      user: { type: Types.ObjectId, ref: "User" },
+      user_role: { type: String, enum: ["CREATOR", "ADMIN", "GROUP_ADMIN"] },
+    },
     banned: { type: Boolean, required: true, default: false },
   },
   {

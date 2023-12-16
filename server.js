@@ -13,7 +13,6 @@ const cors = require("cors");
 const bodyParser = require("body-parser");
 const cookieParser = require("cookie-parser");
 
-require("dotenv").config();
 
 const route = require("./routes/index");
 const app = express();
@@ -24,7 +23,14 @@ app.use(compress());
 // Use Helmet!
 app.use(helmet());
 // HTTP  logger
-app.use(morgan("combined"));
+
+if (process.env.NODE_ENV !== "production") {
+  const morgan = require("morgan");
+  require("dotenv").config();
+  // Sử dụng morgan trong môi trường development
+  app.use(morgan("combined"));
+}
+
 
 const corsOptions = {
   origin: (origin, callback) => {
@@ -127,7 +133,7 @@ DBconnect(() => {
         } else if (type == "hide") {
           content = " admin deleted your post";
         }
-        
+
         if (type == "remove") {
           const requested = Notification.findOne({
             sender_id,
@@ -163,7 +169,7 @@ DBconnect(() => {
               if (check == null || type != "like") {
                 const recieveIds = receiver_id;
                 recieveIds.forEach(async (reciever) => {
-                  if(type != "reject" && sender_id != reciever){
+                  if (type != "reject" && sender_id != reciever) {
                     const newNotification = new Notification({
                       user_id: reciever,
                       sender_id: sender_id,
@@ -172,36 +178,38 @@ DBconnect(() => {
                       reponse: reponse,
                       read: false,
                     });
-                    
-                    
-                    // Lưu thông báo vào cơ sở dữ liệu
-                    await newNotification.save()
-                    .then(async (notification) => {
-                      console.log("Thông báo đã được tạo:", notification);
-                      const sendUserSocket = onlineUsers.get(reciever);
-                      const sender = await User.findById(
-                        notification.sender_id
-                      ).exec();
-                      const data = {
-                        _id: notification._id,
-                        sender_id: notification.sender_id,
-                        senderName: sender.username,
-                        img: sender.profile_picture,
-                        content_id: notification.content_id,
-                        content: notification.content,
-                        reponse: reponse,
-                        read: false,
-                        createAt: notification.created_at,
-                      };
 
-                      if (sendUserSocket) {
-                        console.log("da gui cho " + sendUserSocket);
-                        socket.to(sendUserSocket).emit("getNotification", data);
-                      }
-                    })
-                    .catch((error) => {
-                      console.error("Lỗi khi tạo thông báo:", error);
-                    });
+                    // Lưu thông báo vào cơ sở dữ liệu
+                    await newNotification
+                      .save()
+                      .then(async (notification) => {
+                        console.log("Thông báo đã được tạo:", notification);
+                        const sendUserSocket = onlineUsers.get(reciever);
+                        const sender = await User.findById(
+                          notification.sender_id
+                        ).exec();
+                        const data = {
+                          _id: notification._id,
+                          sender_id: notification.sender_id,
+                          senderName: sender.username,
+                          img: sender.profile_picture,
+                          content_id: notification.content_id,
+                          content: notification.content,
+                          reponse: reponse,
+                          read: false,
+                          createAt: notification.created_at,
+                        };
+
+                        if (sendUserSocket) {
+                          console.log("da gui cho " + sendUserSocket);
+                          socket
+                            .to(sendUserSocket)
+                            .emit("getNotification", data);
+                        }
+                      })
+                      .catch((error) => {
+                        console.error("Lỗi khi tạo thông báo:", error);
+                      });
                   }
                 });
               }

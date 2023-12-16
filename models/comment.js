@@ -23,7 +23,16 @@ const commentSchema = new Schema(
         },
       },
     ],
-    deleted_by: { type: String, enum: ["ADMIN", "USER"] },
+    users_hide_cmt: [
+      {
+        user: { type: Types.ObjectId, required: true, ref: "User" },
+        hided_time: { type: Date, default: new Date() },
+      },
+    ],
+    deleted_by: {
+      user: { type: Types.ObjectId, ref: "User" },
+      user_role: { type: String, enum: ["USER", "ADMIN", "POST_CREATOR"] },
+    },
   },
   {
     timestamps: { createdAt: "created_at", updatedAt: "updated_at" },

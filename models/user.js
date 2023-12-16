@@ -27,6 +27,9 @@ const userSettingSchema = new Schema(
     notification_setting: { type: String },
     privacy_setting: { type: String },
     theme: { type: String },
+    list_creators_posts_hided: [
+      { type: Types.ObjectId, required: true, ref: "User" },
+    ],
   },
   { _id: false }
 );
@@ -46,8 +49,16 @@ const userSchema = new Schema(
     search_keyword: { type: String, required: true, default: "" },
     user_info: userInfoSchema,
     profile_picture: { type: String, trim: true, default: "" },
-    posts: [{ type: Types.ObjectId, ref: "Post" }],
     deleted_posts: [{ type: Types.ObjectId, ref: "Post" }],
+    saved_posts: [
+      new Schema(
+        {
+          post: { type: Types.ObjectId, ref: "Post" },
+          saved_time: { type: Date, default: new Date() },
+        },
+        { _id: false }
+      ),
+    ],
     friend_requests: [{ type: Types.ObjectId, ref: "User" }],
     friend_requests_sent: [{ type: Types.ObjectId, ref: "User" }],
     friends: [{ type: Types.ObjectId, ref: "User" }],
@@ -60,9 +71,27 @@ const userSchema = new Schema(
     admin: { type: Boolean, required: true, default: false },
     user_setting: userSettingSchema,
     reset_token: { type: String },
+    deleted_by: {
+      user: { type: Types.ObjectId, ref: "User" },
+      user_role: { type: String, enum: ["USER", "ADMIN"] },
+    },
   },
-  { timestamps: { createdAt: "created_at", updatedAt: "updated_at" } }
+  {
+    toJSON: { virtuals: true }, // So `res.json()` and other `JSON.stringify()` functions include virtuals
+    //toObject: { virtuals: true }, // So `console.log()` and other functions that use `toObject()` include virtuals
+    timestamps: { createdAt: "created_at", updatedAt: "updated_at" },
+  }
 );
+
+userSchema.virtual("posts", {
+  ref: "Post",
+  localField: "_id",
+  foreignField: "creator",
+  match: {
+    deleted_by: { $exists: false },
+    $or: [{ banned: false }, { banned: { $exists: false } }],
+  },
+});
 
 //Plugins, methods, middlewares, statics, query helpers
 userSchema.plugin(uniqueValidator);
