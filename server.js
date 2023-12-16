@@ -6,14 +6,13 @@ const Notification = require("./models/notification");
 const allowedOrigins = require("./configs/allowedOrigin");
 
 const session = require("express-session");
-//const morgan = require("morgan");
+const morgan = require("morgan");
 const helmet = require("helmet");
 const compress = require("compression");
 const cors = require("cors");
 const bodyParser = require("body-parser");
 const cookieParser = require("cookie-parser");
 
-//require("dotenv").config();
 
 const route = require("./routes/index");
 const app = express();
@@ -24,12 +23,14 @@ app.use(compress());
 // Use Helmet!
 app.use(helmet());
 // HTTP  logger
+
 if (process.env.NODE_ENV !== "production") {
   const morgan = require("morgan");
   require("dotenv").config();
   // Sử dụng morgan trong môi trường development
   app.use(morgan("combined"));
 }
+
 
 const corsOptions = {
   origin: (origin, callback) => {
