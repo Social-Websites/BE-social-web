@@ -6,7 +6,6 @@ const Notification = require("./models/notification");
 const allowedOrigins = require("./configs/allowedOrigin");
 
 const session = require("express-session");
-const morgan = require("morgan");
 const helmet = require("helmet");
 const compress = require("compression");
 const cors = require("cors");
