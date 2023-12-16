@@ -56,7 +56,6 @@ const verifyAccessToken = async (req, res, next) => {
     return next(error);
   }
   try {
-    console.log(process.env.ACCESS_TOKEN_SECRET);
     const token = authHeader.split(" ")[1];
     if (!token) {
       const error = new HttpError("Chưa xác thực!", 500);

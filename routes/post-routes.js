@@ -10,6 +10,7 @@ router.use(tokenHandler.verifyAccessToken);
 
 router.get("/", PostController.getHomePosts);
 router.get("/user/:username", PostController.getUserPosts);
+router.get("/user/:username/saved-posts", PostController.getSavedPosts);
 router.get("/:postId/comments", PostController.getPostComments);
 router.get("/:postId", PostController.getSinglePost);
 
@@ -63,6 +64,12 @@ router.post(
   PostController.reportPost
 );
 
+router.post(
+  "/:postId",
+  [check("save").isBoolean().withMessage("Trường save phải là boolean!")],
+  PostController.savePost
+);
+
 router.patch(
   "/react/:postId",
   [check("emoji").not().isEmpty()],
@@ -70,6 +77,6 @@ router.patch(
 );
 
 router.delete("/:postId", PostController.deletePost);
-router.delete("/comments/:commentId", PostController.deleteComment);
+router.delete("/comment/:commentId", PostController.deleteComment);
 
 module.exports = router;

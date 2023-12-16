@@ -7,7 +7,7 @@ const { validationResult } = require("express-validator");
 
 const getUser = async (req, res, next) => {
   const userId = req.userData.id;
-  console.log(userId); // ID của người dùng
+
   try {
     const user = await User.findOne(
       { _id: userId, banned: false },
@@ -93,17 +93,16 @@ const getUserByUsername = async (req, res, next) => {
       .populate({
         path: "friends",
         match: { banned: false },
-        transform: (doc, id) => id,
+        select: "_id",
       })
       .populate({
         path: "friend_requests",
         match: { banned: false },
-        transform: (doc, id) => id,
+        select: "_id",
       })
       .populate({
         path: "posts",
-        match: { deleted_by: undefined },
-        transform: (doc, id) => id,
+        select: "creator",
       });
 
     if (!user) {
@@ -112,8 +111,10 @@ const getUserByUsername = async (req, res, next) => {
     }
 
     // Kiểm tra xem userId có nằm trong mảng friends hay friend_requests không
-    const isFriend = user.friends.includes(userId);
-    const isFriendRequestSent = user.friend_requests.includes(userId);
+    const isFriend = user.friends.some((friend) => friend._id.equals(userId));
+    const isFriendRequestSent = user.friend_requests.some((request) =>
+      request._id.equals(userId)
+    );
 
     // Tính toán số lượng bài viết
     let postsCount = user.posts.length;

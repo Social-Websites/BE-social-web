@@ -422,13 +422,14 @@ const getPaginatedPosts = async (req, res) => {
 
 //Xóa bài viết
 const deletePostByAdmin = async (req, res) => {
+  const userId = req.userData.id;
   const postId = req.params.postId;
   const newDeletedByValue = "ADMIN";
 
   try {
     const updatedPost = await Post.findOneAndUpdate(
       { _id: postId },
-      { $set: { deleted_by: newDeletedByValue } },
+      { $set: { deleted_by: { user: userId, user_role: newDeletedByValue } } },
       { new: true }
     );
 
@@ -507,15 +508,16 @@ const unBanPostByAdmin = async (req, res, next) => {
     );
 
     if (!updatedPost) {
-      return res.status(404).json({ message: "Không tìm thấy bài viết" });
+      const error = new HttpError("Không tìm thấy bài viết!", 404);
+      return next(error);
     }
-    return res
-      .status(200)
-      .json({ message: "Bài viết đã được mở cấm thành công." });
-  } catch (error) {
-    return res
-      .status(500)
-      .json({ message: "Đã xảy ra lỗi trong quá trình bỏ cấm bài viết." });
+    return res.json({ message: "Bài viết đã được mở cấm thành công!" });
+  } catch (err) {
+    const error = new HttpError(
+      "Có lỗi trong quá trình ban post, vui lòng thử lại sau!",
+      500
+    );
+    return next(error);
   }
 };
 
