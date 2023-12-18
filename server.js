@@ -12,7 +12,6 @@ const cors = require("cors");
 const bodyParser = require("body-parser");
 const cookieParser = require("cookie-parser");
 
-
 const route = require("./routes/index");
 const app = express();
 
@@ -29,7 +28,6 @@ if (process.env.NODE_ENV !== "production") {
   // Sử dụng morgan trong môi trường development
   app.use(morgan("combined"));
 }
-
 
 const corsOptions = {
   origin: (origin, callback) => {
