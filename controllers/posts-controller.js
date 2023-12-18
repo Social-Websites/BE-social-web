@@ -41,8 +41,6 @@ const createPost = async (req, res, next) => {
     const sess = await mongoose.startSession();
     sess.startTransaction();
     await newPost.save({ session: sess });
-    user.posts.push(newPost);
-    await user.save({ session: sess });
     await newPost.populate("creator", "username profile_picture");
     await sess.commitTransaction();
   } catch (err) {
@@ -279,6 +277,12 @@ const deletePost = async (req, res) => {
 const getSinglePost = async (req, res, next) => {
   const userId = req.userData.id;
   const postId = req.params.postId;
+
+  // Kiểm tra xem postId có đúng định dạng ObjectId không
+  if (!mongoose.Types.ObjectId.isValid(postId)) {
+    const error = new HttpError("Post not found!", 404);
+    return next(error);
+  }
 
   try {
     const user = await User.findOne({
@@ -609,8 +613,6 @@ const getSavedPosts = async (req, res, next) => {
     );
     user.saved_posts.sort((a, b) => b.saved_time - a.saved_time);
 
-    console.log(user);
-
     await user.populate({
       path: "saved_posts.post",
       match: {
@@ -703,6 +705,13 @@ const getPostComments = async (req, res, next) => {
         as: "user",
       })
       .unwind("user")
+      .match({
+        $expr: {
+          $not: {
+            $in: [new mongoose.Types.ObjectId(userId), "$user.block_list"],
+          },
+        },
+      })
       .addFields({ relate_cmts_count: { $size: "$relate_cmts" } })
       .project({
         user: { _id: 1, username: 1, profile_picture: 1, block_list: 1 },
@@ -714,14 +723,11 @@ const getPostComments = async (req, res, next) => {
         comment: 1,
         created_at: 1,
       })
+      .sort({ created_at: -1 })
       .skip((page - 1) * limit)
       .limit(limit);
 
-    const filteredComments = comments.filter(
-      (comment) => !comment.user.block_list.includes(userId)
-    );
-
-    res.status(200).json({ comments: filteredComments });
+    res.json({ comments: comments });
   } catch (err) {
     console.log("Comment 2===============: ", err);
     const error = new HttpError(
