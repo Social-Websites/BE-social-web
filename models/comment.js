@@ -8,10 +8,10 @@ const commentSchema = new Schema(
   {
     user: { type: Types.ObjectId, required: true, ref: "User" },
     post: { type: Types.ObjectId, required: true, ref: "Post" },
-    cmt_level: { type: Number, require: true, enum: [1, 2, 3], default: 1 },
+    cmt_level: { type: Number, require: true, enum: [1, 2], default: 1 },
     reply_to: { type: Types.ObjectId, ref: "Comment" }, //Trả lời 1 CMT (nếu CMT được trả lời cấp 1 or 2 thì this.parent = this.reply_to, cấp 3 thì this.parent = this.reply_to.mother_cmt, cả 2 TH thì this.cmt_level = this.mother_cmt.cmt_level + 1)
     parent: { type: Types.ObjectId, ref: "Comment" }, //CMT cấp cao hơn: this.parent.cmt_level < this.cmt_level
-    children: [{ type: Types.ObjectId, ref: "Comment" }], // Các CMT cấp thấp hơn: thấp nhất là 3
+    //children: [{ type: Types.ObjectId, ref: "Comment" }], // Các CMT cấp thấp hơn: thấp nhất là 3
     comment: { type: String },
     media: [{ type: String }],
     reacts: [
@@ -39,6 +39,16 @@ const commentSchema = new Schema(
   }
 );
 
+commentSchema.virtual("children", {
+  ref: "Comment",
+  localField: "_id",
+  foreignField: "parent",
+  match: {
+    deleted_by: { $exists: false },
+    $or: [{ banned: false }, { banned: { $exists: false } }],
+  },
+});
+
 commentSchema.plugin(uniqueValidator);
 
 commentSchema.pre(
@@ -53,15 +63,17 @@ commentSchema.pre(
           this.reply_to,
           {
             $push: {
-              children: replyComment.cmt_level < 3 ? this._id : undefined,
+              children: replyComment.cmt_level < 2 ? this._id : undefined,
               "parent.children":
-                replyComment.cmt_level === 3 ? this._id : undefined,
+                replyComment.cmt_level === 2 ? this._id : undefined,
             },
           },
           { new: true, session: this.$session() }
         );
 
-        console.log("----------------------------------middelware pre save");
+        console.log(
+          "----------------------------------middelware comment pre save"
+        );
         if (!replyComment) {
           const error = new HttpError(
             "Không tìm thấy comment cần phản hồi!",
@@ -71,9 +83,9 @@ commentSchema.pre(
         }
         // Update the current document fields
         this.parent =
-          replyComment.cmt_level < 3 ? this.reply_to : replyComment.parent;
+          replyComment.cmt_level < 2 ? this.reply_to : replyComment.parent;
         this.cmt_level =
-          replyComment.cmt_level < 3
+          replyComment.cmt_level < 2
             ? replyComment.cmt_level + 1
             : replyComment.cmt_level;
       } catch (err) {
