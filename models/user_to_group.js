@@ -10,7 +10,7 @@ const userToGroupSchema = new Schema(
     status: {
         type: String,
         required: true,
-        enum: ["REQUESTED", "MEMBER", "INVITED"],
+        enum: ["REQUESTED", "MEMBER", "INVITED", "ADMIN"],
       },
   },
   {

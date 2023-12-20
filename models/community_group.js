@@ -7,8 +7,8 @@ const communityGroupSchema = new Schema(
   {
     name: { type: String, required: true },
     description: { type: String },
+    cover: { type: String },
     created_by: { type: Types.ObjectId, required: true, ref: "User" },
-    admins: [{ type: Types.ObjectId, required: true, ref: "User" }],
     visibility: {
       type: String,
       enum: ["PUBLIC", "PRIVATE"],
