@@ -20,4 +20,4 @@ const userToGroupSchema = new Schema(
 
 userToGroupSchema.plugin(uniqueValidator);
 
-module.exports = mongoose.model("User_group", userToGroupSchema);
+module.exports = mongoose.model("User_to_group", userToGroupSchema);
