@@ -78,6 +78,43 @@ class GroupsController {
         return groupInfo;
     }
 
+
+    async createGroup(req, res, next) {
+        const { name, description, cover } = req.body;
+        const userId = req.userData.id;
+        const user = await User.findOne({ _id: userId, banned: false });
+        if (!user) {
+            const error = new HttpError("Không tìm thấy user!", 404);
+            return next(error);
+        }
+        try {
+          // Tạo một document mới cho group
+          const group = new Group({
+            name,
+            description,
+            cover,
+          });
+          // Lưu group vào cơ sở dữ liệu
+          await group.save();
+          // Lấy ID của group sau khi được lưu
+          const groupId = group._id;
+          // Lấy ID của người dùng đang tạo group
+          const userId = req.userData.id;
+          // Tạo một document mới trong UserToGroup để lưu thông tin quan hệ người dùng - group
+          const userToGroup = new UserToGroup({
+            user: userId,
+            group: groupId,
+            status: "ADMIN",
+          });
+          // Lưu userToGroup vào cơ sở dữ liệu
+          await userToGroup.save();
+          res.status(201).json({ message: "Group đã được tạo thành công!" });
+        } catch (error) {
+          console.log(error);
+          next(error);
+        }
+      }
+
 }
 
 module.exports = new GroupsController();
