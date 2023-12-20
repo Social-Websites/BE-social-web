@@ -9,9 +9,9 @@ const commentSchema = new Schema(
     user: { type: Types.ObjectId, required: true, ref: "User" },
     post: { type: Types.ObjectId, required: true, ref: "Post" },
     cmt_level: { type: Number, require: true, enum: [1, 2, 3], default: 1 },
-    reply_to: { type: Types.ObjectId, ref: "Comment" }, //Trả lời 1 CMT (nếu CMT được trả lời cấp 1 or 2 thì this.mother_cmt = this.reply_to, cấp 3 thì this.mother_cmt = this.reply_to.mother_cmt, cả 2 TH thì this.cmt_level = this.mother_cmt.cmt_level + 1)
-    mother_cmt: { type: Types.ObjectId, ref: "Comment" }, //CMT cấp cao hơn: this.mother_cmt.cmt_level < this.cmt_level
-    relate_cmts: [{ type: Types.ObjectId, ref: "Comment" }], // Các CMT cấp thấp hơn: thấp nhất là 3
+    reply_to: { type: Types.ObjectId, ref: "Comment" }, //Trả lời 1 CMT (nếu CMT được trả lời cấp 1 or 2 thì this.parent = this.reply_to, cấp 3 thì this.parent = this.reply_to.mother_cmt, cả 2 TH thì this.cmt_level = this.mother_cmt.cmt_level + 1)
+    parent: { type: Types.ObjectId, ref: "Comment" }, //CMT cấp cao hơn: this.parent.cmt_level < this.cmt_level
+    children: [{ type: Types.ObjectId, ref: "Comment" }], // Các CMT cấp thấp hơn: thấp nhất là 3
     comment: { type: String },
     media: [{ type: String }],
     reacts: [
@@ -53,8 +53,8 @@ commentSchema.pre(
           this.reply_to,
           {
             $push: {
-              relate_cmts: replyComment.cmt_level < 3 ? this._id : undefined,
-              "mother_cmt.relate_cmts":
+              children: replyComment.cmt_level < 3 ? this._id : undefined,
+              "parent.children":
                 replyComment.cmt_level === 3 ? this._id : undefined,
             },
           },
@@ -70,8 +70,8 @@ commentSchema.pre(
           return next(error);
         }
         // Update the current document fields
-        this.mother_cmt =
-          replyComment.cmt_level < 3 ? this.reply_to : replyComment.mother_cmt;
+        this.parent =
+          replyComment.cmt_level < 3 ? this.reply_to : replyComment.parent;
         this.cmt_level =
           replyComment.cmt_level < 3
             ? replyComment.cmt_level + 1
