@@ -7,5 +7,6 @@ router.use(tokenHandler.verifyAccessToken);
 router.get('/admin', groupsController.getAdminGroups)
 router.get('/member', groupsController.getMemberGroups)
 router.get('/invited', groupsController.getInvitedGroups)
+router.get('/search', groupsController.searchGroups)
 router.post('/create', groupsController.createGroup)
 module.exports = router
