@@ -729,6 +729,13 @@ const getPostComments = async (req, res, next) => {
         localField: "_id",
         foreignField: "parent",
         as: "children",
+        pipeline: [
+          {
+            $match: {
+              deleted_by: { $exists: false }, // Thêm điều kiện không bị xóa
+            },
+          },
+        ],
       })
       .addFields({ children_cmts_count: { $size: "$children" } })
       .project({
@@ -804,7 +811,7 @@ const getChildrenComments = async (req, res, next) => {
         comment: 1,
         created_at: 1,
       })
-      .sort({ created_at: -1 })
+      .sort({ created_at: 1 })
       .skip((page - 1) * limit)
       .limit(limit);
 
