@@ -12,6 +12,10 @@ router.get("/", PostController.getHomePosts);
 router.get("/user/:username", PostController.getUserPosts);
 router.get("/user/:username/saved-posts", PostController.getSavedPosts);
 router.get("/:postId/comments", PostController.getPostComments);
+router.get(
+  "/:postId/comments/:commentId/replies",
+  PostController.getChildrenComments
+);
 router.get("/:postId", PostController.getSinglePost);
 
 router.post(

@@ -49,27 +49,21 @@ commentSchema.virtual("children", {
   },
 });
 
-commentSchema.plugin(uniqueValidator);
+//commentSchema.plugin(uniqueValidator);
 
 commentSchema.pre(
   "save",
   { document: true, query: false },
   async function (next) {
     // Check if there is a reply_to field
+    console.log("reply");
     if (this.isNew && this.reply_to) {
+      console.log("------------reply");
       try {
-        // const doc = mongoose.model("Comment", commentSchema);
-        const replyComment = await Comment.findByIdAndUpdate(
-          this.reply_to,
-          {
-            $push: {
-              children: replyComment.cmt_level < 2 ? this._id : undefined,
-              "parent.children":
-                replyComment.cmt_level === 2 ? this._id : undefined,
-            },
-          },
-          { new: true, session: this.$session() }
-        );
+        const replyComment = await Comment.findOne({
+          _id: this.reply_to,
+          deleted: { $exists: false },
+        });
 
         console.log(
           "----------------------------------middelware comment pre save"
@@ -88,10 +82,9 @@ commentSchema.pre(
           replyComment.cmt_level < 2
             ? replyComment.cmt_level + 1
             : replyComment.cmt_level;
+        console.log(this);
       } catch (err) {
-        console.log(err);
-        const error = new HttpError("Có lỗi khi comment!", 500);
-        return next(error);
+        throw err;
       }
     }
   }
