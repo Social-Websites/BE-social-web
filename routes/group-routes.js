@@ -9,4 +9,7 @@ router.get('/member', groupsController.getMemberGroups)
 router.get('/invited', groupsController.getInvitedGroups)
 router.get('/search', groupsController.searchGroups)
 router.post('/create', groupsController.createGroup)
+router.put('/accept', groupsController.acceptGroup)
+router.put('/kick', groupsController.kickGroup)
+router.post('/request', groupsController.requestToGroup)
 module.exports = router

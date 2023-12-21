@@ -1,13 +1,7 @@
-const mongoose = require("mongoose");
 const HttpError = require("../models/http-error");
-const Post = require("../models/post");
 const UserToGroup = require("../models/user_to_group");
 const Group = require("../models/community_group");
 const User = require("../models/user");
-const Comment = require("../models/comment");
-const { validationResult } = require("express-validator");
-
-
 
 
 
@@ -26,7 +20,7 @@ class GroupsController {
             const groups = userToGroup.map(userGroup => userGroup.group);
             const groupInfoPromises = groups.map(async (group) => {const g = await Group.findById(group._id);
                                                     const { _id, name, cover } = g;
-                                                    return { id: _id, name, cover };}
+                                                    return { _id, name, cover, status:"MEMBER" };}
                                                 );
             const groupInfo = await Promise.all(groupInfoPromises);
             res.json({groups: groupInfo});
@@ -53,7 +47,7 @@ class GroupsController {
             const groups = userToGroup.map(userGroup => userGroup.group);
             const groupInfoPromises = groups.map(async (group) => {const g = await Group.findById(group._id);
                 const { _id, name, cover } = g;
-                return { _id, name, cover };}
+                return { _id, name, cover, status:"ADMIN" };}
             );
             const groupInfo = await Promise.all(groupInfoPromises);
             res.json({groups: groupInfo });
@@ -80,7 +74,7 @@ class GroupsController {
             const groups = userToGroup.map(userGroup => userGroup.group);
             const groupInfoPromises = groups.map(async (group) => {const g = await Group.findById(group._id);
                 const { _id, name, cover } = g;
-                return { id: _id, name, cover };}
+                return { _id, name, cover, status:"INVITED" };}
             );
             const groupInfo = await Promise.all(groupInfoPromises);
             res.json({groups: groupInfo });
@@ -146,6 +140,72 @@ class GroupsController {
             const regex = new RegExp(searchText, "i");
             const groups = await Group.find({ name: regex }).limit(15); // Giới hạn trả về 50 kết quả
             res.json(groups);
+        } catch (error) {
+            console.log(error);
+            next(error);
+        }
+    }
+
+
+    async acceptGroup(req, res, next) {
+        const userId = req.userData.id;
+        const groupId = req.query.groupId;
+        const user = await User.findOne({ _id: userId, banned: false });
+        if (!user) {
+            const error = new HttpError("Không tìm thấy user!", 404);
+            return next(error);
+        }
+        try {
+            await Group.findOneAndUpdate(
+                { user: userId, group: groupId },
+                { $set: {status: "MEMBER"}} 
+            );
+            res.json(true);
+        } catch (error) {
+            console.log(error);
+            next(error);
+        }
+    }
+
+    async kickGroup(req, res, next) {
+        const userId = req.userData.id;
+        const groupId = req.query.groupId;
+        const user = await User.findOne({ _id: userId, banned: false });
+        if (!user) {
+            const error = new HttpError("Không tìm thấy user!", 404);
+            return next(error);
+        }
+        try {
+            await Group.deleteOne(
+                { user: userId, group: groupId }
+            );
+            res.json(true);
+        } catch (error) {
+            console.log(error);
+            next(error);
+        }
+    }
+
+
+    async requestToGroup(req, res, next) {
+        const userId = req.userData.id;
+        const groupId = req.query.groupId;
+        const user = await User.findOne({ _id: userId, banned: false });
+        if (!user) {
+            const error = new HttpError("Không tìm thấy user!", 404);
+            return next(error);
+        }
+        try {
+            // Tạo một document mới trong UserToGroup để lưu thông tin quan hệ người dùng - group
+          const userToGroup = new UserToGroup({
+            user: userId,
+            group: groupId,
+            status: "REQUESTED",
+          });
+          // Lưu userToGroup vào cơ sở dữ liệu
+          await userToGroup.save();
+
+            res.json(true);
         } catch (error) {
             console.log(error);
             next(error);
