@@ -676,12 +676,24 @@ const getPostComments = async (req, res, next) => {
   const limit = Math.max(30, parseInt(req.query.limit)) || 30; // Số lượng comments mỗi lần (mặc định là 30)
 
   try {
-    const user = await User.findOne({ _id: userId, banned: false }).select(
-      "block_list"
-    );
+    const [user, post] = await Promise.all([
+      User.findOne({ _id: userId, banned: false }).select("block_list"),
+      Post.findOne(
+        {
+          _id: postId,
+          deleted_by: { $exists: false },
+          $or: [{ banned: false }, { banned: { $exists: false } }],
+        },
+        { comments: 1 }
+      ).select("_id"),
+    ]);
 
     if (!user) {
       const error = new HttpError("Không tìm thấy người dùng!", 404);
+      return next(error);
+    }
+    if (!post) {
+      const error = new HttpError("Không tìm thấy post!", 404);
       return next(error);
     }
 
@@ -712,11 +724,24 @@ const getPostComments = async (req, res, next) => {
           },
         },
       })
-      .addFields({ relate_cmts_count: { $size: "$relate_cmts" } })
+      .lookup({
+        from: "comments",
+        localField: "_id",
+        foreignField: "parent",
+        as: "children",
+        pipeline: [
+          {
+            $match: {
+              deleted_by: { $exists: false }, // Thêm điều kiện không bị xóa
+            },
+          },
+        ],
+      })
+      .addFields({ children_cmts_count: { $size: "$children" } })
       .project({
         user: { _id: 1, username: 1, profile_picture: 1, block_list: 1 },
-        relate_cmts_count: 1,
-        mother_cmt: 1,
+        children_cmts_count: 1,
+        parent: 1,
         reply_to: 1,
         cmt_level: 1,
         media: 1,
@@ -738,6 +763,66 @@ const getPostComments = async (req, res, next) => {
   }
 };
 
+const getChildrenComments = async (req, res, next) => {
+  const userId = req.userData.id;
+  const commentId = req.params.commentId;
+  const page = Math.max(1, parseInt(req.query.page)) || 1; // Trang hiện tại (mặc định là 1)
+  const limit = Math.max(300, parseInt(req.query.limit)) || 300; // Số lượng comments mỗi lần (mặc định là 300)
+
+  try {
+    const user = await User.findOne({ _id: userId, banned: false }).select(
+      "block_list"
+    );
+    if (!user) {
+      const error = new HttpError("Không tìm thấy người dùng!", 404);
+      return next(error);
+    }
+
+    const blockListIds = user.block_list.map((blockedUser) => blockedUser._id);
+
+    const children = await Comment.aggregate()
+      .match({
+        parent: new mongoose.Types.ObjectId(commentId),
+        user: {
+          $nin: blockListIds.map((id) => new mongoose.Types.ObjectId(id)),
+        },
+        deleted_by: { $exists: false },
+      })
+      .lookup({
+        from: "users",
+        localField: "user",
+        foreignField: "_id",
+        as: "user",
+      })
+      .unwind("user")
+      .match({
+        $expr: {
+          $not: {
+            $in: [new mongoose.Types.ObjectId(userId), "$user.block_list"],
+          },
+        },
+      })
+      .project({
+        user: { _id: 1, username: 1, profile_picture: 1, block_list: 1 },
+        parent: 1,
+        reply_to: 1,
+        cmt_level: 1,
+        media: 1,
+        comment: 1,
+        created_at: 1,
+      })
+      .sort({ created_at: 1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    res.json({ replies: children });
+  } catch (err) {
+    console.log("Error while fetching children comments: ", err);
+    const error = new HttpError("Có lỗi khi lấy các comment con!", 500);
+    return next(error);
+  }
+};
+
 const comment = async (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
@@ -747,20 +832,22 @@ const comment = async (req, res, next) => {
   const { postId, comment, urlStrings, reply_to } = req.body;
 
   try {
-    const user = await User.findOne({ _id: userId, banned: false });
+    const [user, post] = await Promise.all([
+      User.findOne({ _id: userId, banned: false }).select("_id"),
+      Post.findOne(
+        {
+          _id: postId,
+          deleted_by: { $exists: false },
+          $or: [{ banned: false }, { banned: { $exists: false } }],
+        },
+        { comments: 1 }
+      ).select("_id"),
+    ]);
+
     if (!user) {
       const error = new HttpError("Không tìm thấy user!", 404);
       return next(error);
     }
-
-    const post = await Post.findOne(
-      {
-        _id: postId,
-        deleted_by: { $exists: false },
-        $or: [{ banned: false }, { banned: { $exists: false } }],
-      },
-      { comments: 1 }
-    );
     if (!post) {
       const error = new HttpError("Không tìm thấy post!", 404);
       return next(error);
@@ -781,14 +868,13 @@ const comment = async (req, res, next) => {
     const sess = await mongoose.startSession();
     sess.startTransaction();
     await newComment.save({ session: sess });
-    post.comments.push(newComment);
-    await post.save({ session: sess });
+    console.log("presave");
     await newComment.populate("user", "username profile_picture");
     await sess.commitTransaction();
 
     res.status(201).json({ comment: newComment });
   } catch (err) {
-    console.log("Bài viết 1===============: ", err);
+    console.log("Comment 1===============: ", err);
     const error = new HttpError(
       "Có lỗi khi gửi comment, vui lòng thử lại!",
       500
@@ -934,3 +1020,4 @@ exports.getSinglePost = getSinglePost;
 exports.reportPost = reportPost;
 exports.savePost = savePost;
 exports.getSavedPosts = getSavedPosts;
+exports.getChildrenComments = getChildrenComments;

@@ -8,10 +8,10 @@ const commentSchema = new Schema(
   {
     user: { type: Types.ObjectId, required: true, ref: "User" },
     post: { type: Types.ObjectId, required: true, ref: "Post" },
-    cmt_level: { type: Number, require: true, enum: [1, 2, 3], default: 1 },
-    reply_to: { type: Types.ObjectId, ref: "Comment" }, //Trả lời 1 CMT (nếu CMT được trả lời cấp 1 or 2 thì this.mother_cmt = this.reply_to, cấp 3 thì this.mother_cmt = this.reply_to.mother_cmt, cả 2 TH thì this.cmt_level = this.mother_cmt.cmt_level + 1)
-    mother_cmt: { type: Types.ObjectId, ref: "Comment" }, //CMT cấp cao hơn: this.mother_cmt.cmt_level < this.cmt_level
-    relate_cmts: [{ type: Types.ObjectId, ref: "Comment" }], // Các CMT cấp thấp hơn: thấp nhất là 3
+    cmt_level: { type: Number, require: true, enum: [1, 2], default: 1 },
+    reply_to: { type: Types.ObjectId, ref: "Comment" }, //Trả lời 1 CMT (nếu CMT được trả lời cấp 1 or 2 thì this.parent = this.reply_to, cấp 3 thì this.parent = this.reply_to.mother_cmt, cả 2 TH thì this.cmt_level = this.mother_cmt.cmt_level + 1)
+    parent: { type: Types.ObjectId, ref: "Comment" }, //CMT cấp cao hơn: this.parent.cmt_level < this.cmt_level
+    //children: [{ type: Types.ObjectId, ref: "Comment" }], // Các CMT cấp thấp hơn: thấp nhất là 3
     comment: { type: String },
     media: [{ type: String }],
     reacts: [
@@ -39,29 +39,35 @@ const commentSchema = new Schema(
   }
 );
 
-commentSchema.plugin(uniqueValidator);
+commentSchema.virtual("children", {
+  ref: "Comment",
+  localField: "_id",
+  foreignField: "parent",
+  match: {
+    deleted_by: { $exists: false },
+    $or: [{ banned: false }, { banned: { $exists: false } }],
+  },
+});
+
+//commentSchema.plugin(uniqueValidator);
 
 commentSchema.pre(
   "save",
   { document: true, query: false },
   async function (next) {
     // Check if there is a reply_to field
+    console.log("reply");
     if (this.isNew && this.reply_to) {
+      console.log("------------reply");
       try {
-        // const doc = mongoose.model("Comment", commentSchema);
-        const replyComment = await Comment.findByIdAndUpdate(
-          this.reply_to,
-          {
-            $push: {
-              relate_cmts: replyComment.cmt_level < 3 ? this._id : undefined,
-              "mother_cmt.relate_cmts":
-                replyComment.cmt_level === 3 ? this._id : undefined,
-            },
-          },
-          { new: true, session: this.$session() }
-        );
+        const replyComment = await Comment.findOne({
+          _id: this.reply_to,
+          deleted: { $exists: false },
+        });
 
-        console.log("----------------------------------middelware pre save");
+        console.log(
+          "----------------------------------middelware comment pre save"
+        );
         if (!replyComment) {
           const error = new HttpError(
             "Không tìm thấy comment cần phản hồi!",
@@ -70,16 +76,15 @@ commentSchema.pre(
           return next(error);
         }
         // Update the current document fields
-        this.mother_cmt =
-          replyComment.cmt_level < 3 ? this.reply_to : replyComment.mother_cmt;
+        this.parent =
+          replyComment.cmt_level < 2 ? this.reply_to : replyComment.parent;
         this.cmt_level =
-          replyComment.cmt_level < 3
+          replyComment.cmt_level < 2
             ? replyComment.cmt_level + 1
             : replyComment.cmt_level;
+        console.log(this);
       } catch (err) {
-        console.log(err);
-        const error = new HttpError("Có lỗi khi comment!", 500);
-        return next(error);
+        throw err;
       }
     }
   }

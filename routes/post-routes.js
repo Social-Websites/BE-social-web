@@ -12,6 +12,10 @@ router.get("/", PostController.getHomePosts);
 router.get("/user/:username", PostController.getUserPosts);
 router.get("/user/:username/saved-posts", PostController.getSavedPosts);
 router.get("/:postId/comments", PostController.getPostComments);
+router.get(
+  "/:postId/comments/:commentId/replies",
+  PostController.getChildrenComments
+);
 router.get("/:postId", PostController.getSinglePost);
 
 router.post(
@@ -43,7 +47,7 @@ router.post(
       const urls = req.body.urlStrings;
 
       if (
-        (!comment || comment === "") &&
+        (!comment || comment.trim() === "") &&
         (!urls || urls.length === 0 || urls.every((url) => url.trim() === ""))
       ) {
         throw new Error("Comment hoặc urlStrings phải tồn tại dữ liệu!");
@@ -51,6 +55,20 @@ router.post(
 
       return true;
     }),
+    check("reply_to")
+      .optional()
+      .custom((value) => {
+        // Nếu có giá trị reply_to, kiểm tra không được trống hoặc chỉ chứa khoảng trắng
+        if (
+          value !== undefined &&
+          (typeof value !== "string" || value.trim() === "")
+        ) {
+          throw new Error(
+            "Trường reply_to không được để trống hoặc chỉ chứa khoảng trắng"
+          );
+        }
+        return true;
+      }),
   ],
   PostController.comment
 );

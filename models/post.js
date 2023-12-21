@@ -15,7 +15,7 @@ const postSchema = new Schema(
       default: "PUBLIC",
     },
     reacts: [{ type: Types.ObjectId, ref: "React" }],
-    comments: [{ type: Types.ObjectId, ref: "Comment" }],
+    //comments: [{ type: Types.ObjectId, ref: "Comment" }],
     pinned_comments: [{ type: Types.ObjectId, ref: "Comment" }],
     has_read: [{ type: Types.ObjectId, ref: "User" }],
     edit_at: { type: Date },
@@ -31,6 +31,16 @@ const postSchema = new Schema(
     timestamps: { createdAt: "created_at", updatedAt: "updated_at" },
   }
 );
+
+postSchema.virtual("comments", {
+  ref: "Comment",
+  localField: "_id",
+  foreignField: "post",
+  match: {
+    deleted_by: { $exists: false },
+    $or: [{ banned: false }, { banned: { $exists: false } }],
+  },
+});
 
 postSchema.plugin(uniqueValidator);
 
