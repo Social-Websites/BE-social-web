@@ -138,8 +138,22 @@ class GroupsController {
         console.log("Search" + searchText);
         try {
             const regex = new RegExp(searchText, "i");
-            const groups = await Group.find({ name: regex }).limit(15); // Giới hạn trả về 50 kết quả
-            res.json(groups);
+
+            const groups = await Group.find({ name: regex })
+            let groupsInfo = [];
+            for(const group of groups){
+                const findgroup = await UserToGroup.find({ user: userId, group: group._id })
+                console.log(findgroup);
+                let status = null;
+                if (findgroup.length > 0) {
+                    status = findgroup[0].status;
+                }
+                groupsInfo.push({_id: group._id, name: group.name, cover: group.cover, status: status})
+            }
+
+            console.log(groupsInfo);
+
+            res.json(groupsInfo);
         } catch (error) {
             console.log(error);
             next(error);
@@ -169,14 +183,15 @@ class GroupsController {
 
     async kickGroup(req, res, next) {
         const userId = req.userData.id;
-        const groupId = req.query.groupId;
+        const groupId = req.query.groupId; 
         const user = await User.findOne({ _id: userId, banned: false });
+        console.log(userId,groupId)
         if (!user) {
             const error = new HttpError("Không tìm thấy user!", 404);
             return next(error);
         }
         try {
-            await Group.deleteOne(
+            await UserToGroup.deleteOne(
                 { user: userId, group: groupId }
             );
             res.json(true);
