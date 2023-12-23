@@ -19,6 +19,7 @@ const postSchema = new Schema(
     pinned_comments: [{ type: Types.ObjectId, ref: "Comment" }],
     has_read: [{ type: Types.ObjectId, ref: "User" }],
     edit_at: { type: Date },
+    status: { type: String, enum: ["APPROVED", "PENDING"] },
     shared_by: { type: Types.ObjectId, ref: "User" },
     original_post: { type: Types.ObjectId, ref: "Post" },
     deleted_by: {
