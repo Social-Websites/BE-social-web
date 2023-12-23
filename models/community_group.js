@@ -16,9 +16,20 @@ const communityGroupSchema = new Schema(
     },
   },
   {
+    toJSON: { virtuals: true },
     timestamps: { createdAt: "created_at", updatedAt: "updated_at" },
   }
 );
+
+communityGroupSchema.virtual("posts", {
+  ref: "Post",
+  localField: "_id",
+  foreignField: "group",
+  match: (baseMatch) => ({
+    deleted_by: { $exists: false },
+    $or: [{ banned: false }, { banned: { $exists: false } }],
+  }),
+});
 
 communityGroupSchema.plugin(uniqueValidator);
 

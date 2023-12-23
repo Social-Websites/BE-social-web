@@ -1,8 +1,11 @@
+const mongoose = require("mongoose");
 const HttpError = require("../models/http-error");
 const UserToGroup = require("../models/user_to_group");
 const Group = require("../models/community_group");
 const User = require("../models/user");
 const Post = require("../models/post");
+const { validationResult } = require("express-validator");
+const React = require("../models/react");
 
 class GroupsController {
   // Sử dụng các hàm trên để lấy thông tin các group mà người dùng là thành viên
@@ -295,6 +298,57 @@ class GroupsController {
     }
   }
 
+  async createGroupPost(req, res, next) {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return next(new HttpError("Giá trị nhập vào không hợp lệ!", 422));
+    }
+    const userId = req.userData.id;
+
+    let user;
+    try {
+      user = await User.findOne({ _id: userId, banned: false });
+      if (!user) {
+        const error = new HttpError("Không tìm thấy user!", 404);
+        return next(error);
+      }
+    } catch (err) {
+      console.log("Bài viết 0===============: ", err);
+      const error = new HttpError(
+        "Có lỗi khi tạo bài viết, vui lòng thử lại!",
+        500
+      );
+      return next(error);
+    }
+
+    const { groupId, title, urlStrings } = req.body;
+    const newPost = new Post({
+      group: groupId,
+      creator: userId,
+      content: title,
+      media: urlStrings,
+      visibility: "GROUP",
+      status: "PENDING",
+    });
+
+    try {
+      const sess = await mongoose.startSession();
+      sess.startTransaction();
+      await newPost.save({ session: sess });
+      await newPost.populate("creator", "username profile_picture");
+      await sess.commitTransaction();
+    } catch (err) {
+      console.log("Bài viết group 1===============: ", err);
+      const error = new HttpError(
+        "Có lỗi khi tạo bài viết, vui lòng thử lại!",
+        500
+      );
+      return next(error);
+    }
+
+    res.status(201).json({ post: newPost });
+  }
+
   async acceptGroup(req, res, next) {
     const userId = req.userData.id;
     const groupId = req.query.groupId;
@@ -368,7 +422,7 @@ class GroupsController {
       return next(error);
     }
 
-    const admin = await UserToGroup.findOne({ _id: userId, status: "ADMIN" });
+    const admin = await UserToGroup.findOne({ user: userId, status: "ADMIN" });
     if (!admin) {
       const error = new HttpError("Không có quyền!", 403);
       return next(error);
@@ -403,7 +457,7 @@ class GroupsController {
       return next(error);
     }
 
-    const admin = await UserToGroup.findOne({ _id: userId, status: "ADMIN" });
+    const admin = await UserToGroup.findOne({ user: userId, status: "ADMIN" });
     if (!admin) {
       const error = new HttpError("Không có quyền!", 403);
       return next(error);
@@ -424,6 +478,37 @@ class GroupsController {
     } catch (err) {
       console.log(err);
       const error = new HttpError("Có lỗi khi kick!", 500);
+      return next(error);
+    }
+  }
+
+  async inviteToGroup(req, res, next) {
+    const userId = req.userData.id;
+    const { groupId, userToInviteId } = req.params;
+    const user = await User.findOne({ _id: userId, banned: false });
+    if (!user) {
+      const error = new HttpError("Không tìm thấy user!", 404);
+      return next(error);
+    }
+
+    const group = await Group.findOne({ _id: groupId });
+    if (!group) {
+      const error = new HttpError("Không tìm thấy group!", 404);
+      return next(error);
+    }
+    try {
+      // Tạo một document mới trong UserToGroup để lưu thông tin quan hệ người dùng - group
+      const userToGroup = new UserToGroup({
+        user: userToInviteId,
+        group: groupId,
+        status: "INVITED",
+      });
+      // Lưu userToGroup vào cơ sở dữ liệu
+      await userToGroup.save();
+      res.json({ message: "Mời thành công!" });
+    } catch (err) {
+      console.log(err);
+      const error = new HttpError("Có lỗi khi mời!", 500);
       return next(error);
     }
   }
@@ -492,6 +577,157 @@ class GroupsController {
       console.log("Group detail 1===============: ", err);
       const error = new HttpError(
         "Có lỗi khi lấy thông tin Group, vui lòng thử lại!",
+        500
+      );
+      return next(error);
+    }
+  }
+
+  async getUserFriendsListToInvite(req, res, next) {
+    const userId = req.userData.id;
+    const groupId = req.params.groupId;
+
+    const page = Math.max(1, parseInt(req.query.page)) || 1;
+    const limit = Math.max(20, parseInt(req.query.limit)) || 20;
+
+    try {
+      const group = Group.findOne({ _id: groupId });
+      if (!group) {
+        const error = new HttpError("Group không tồn tại", 404);
+        return next(error);
+      }
+      const user = await User.findOne({
+        _id: userId,
+        banned: false,
+      }).populate({
+        path: "friends",
+        match: { $or: [{ banned: false }, { banned: { $exists: false } }] },
+        select: "username full_name profile_picture",
+        options: {
+          limit: limit,
+          skip: (page - 1) * limit,
+        },
+      });
+
+      if (!user) {
+        const error = new HttpError("Người dùng không tồn tại", 404);
+        return next(error);
+      }
+
+      console.log(groupId);
+
+      const friendsList = user.friends.map(async (friend) => {
+        const userToGroup = await UserToGroup.findOne({
+          group: groupId,
+          user: friend._id,
+        });
+
+        return {
+          _id: friend._id,
+          username: friend.username,
+          full_name: friend.full_name,
+          profile_picture: friend.profile_picture,
+          status: userToGroup?.status ? userToGroup?.status : "NONE",
+        };
+      });
+
+      const resolvedFriendsList = await Promise.all(friendsList);
+
+      res.json({ friends: resolvedFriendsList });
+    } catch (err) {
+      console.error("======Lấy danh sách bạn bè của người dùng: ", err);
+      const error = new HttpError(
+        "Có lỗi khi lấy thông tin người dùng, vui lòng thử lại sau!",
+        500
+      );
+      return next(error);
+    }
+  }
+
+  async getGroupPostsWithStatus(req, res, next) {
+    const userId = req.userData.id;
+    const groupId = req.params.groupId;
+    const status = req.query.status;
+    const page = Math.max(1, parseInt(req.query.page)) || 1; // Trang hiện tại (mặc định là 1)
+    const limit = Math.max(15, parseInt(req.query.limit)) || 15; // Số lượng bài viết mỗi trang (mặc định là 15)
+
+    try {
+      const user = await User.findOne({ _id: userId, banned: false }).select(
+        "friends block_list saved_posts"
+      );
+
+      if (!user) {
+        const error = new HttpError("Không tìm thấy người dùng!", 404);
+        return next(error);
+      }
+
+      const group = await Group.findOne({ _id: groupId });
+
+      if (!group) {
+        const error = new HttpError("Không tìm thấy group!", 404);
+        return next(error);
+      }
+
+      await group.populate({
+        path: "posts",
+        match: (baseMatch, virtual) => ({
+          ...virtual.options.match(baseMatch),
+          status: status,
+        }),
+        options: {
+          sort: { created_at: -1 },
+          skip: (page - 1) * limit,
+          limit: limit,
+        },
+        populate: [
+          { path: "creator", select: "username profile_picture" },
+          { path: "comments", select: "_id" },
+        ],
+      });
+
+      const savedPostIds = user.saved_posts.map((savedPost) =>
+        savedPost.post.toString()
+      );
+
+      const posts = await Promise.all(
+        group.posts.map(async (post) => {
+          // Kiểm tra xem có phản ứng nào từ người dùng không
+          const isUserLiked = await React.exists({
+            post: post._id,
+            reacted_by: userId,
+          })
+            .lean()
+            .then((react) => !!react);
+
+          const isSaved = savedPostIds.includes(post._id.toString());
+
+          let returnPost = {
+            _id: post._id,
+            group: post.group,
+            creator: post.creator,
+            reacts_count: post.reacts.length,
+            comments_count: post.comments.length,
+            created_at: post.created_at,
+            media: post.media,
+            content: post.content,
+            banned: post.banned,
+            is_user_liked: isUserLiked,
+            ...(Object.entries(post.deleted_by).length === 0 &&
+              post.deleted_by.constructor === Object && {
+                deleted_by: post.deleted_by,
+              }),
+            is_saved: isSaved,
+          };
+
+          return returnPost;
+        })
+      );
+
+      res.json({ posts: posts });
+    } catch (err) {
+      console.log("Bài viết 1===============: ", err);
+      const error = new HttpError(
+        "Có lỗi khi lấy bài viết, vui lòng thử lại!",
         500
       );
       return next(error);
