@@ -17,6 +17,7 @@ router.get(
   GroupsController.getUserFriendsListToInvite
 );
 router.get("/:groupId/posts", GroupsController.getGroupPostsWithStatus);
+router.post("/edit", GroupsController.editGroup);
 
 router.post("/create", GroupsController.createGroup);
 router.put("/accept", GroupsController.acceptGroup);
