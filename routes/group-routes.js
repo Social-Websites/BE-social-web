@@ -11,6 +11,7 @@ router.get("/search", GroupsController.searchGroups);
 router.get("/:groupId", GroupsController.getGroupDetail);
 router.get("/:groupId/join-requests", GroupsController.getJoinGroupRequests);
 router.get("/:groupId/members", GroupsController.getGroupMembers);
+router.post('/edit', groupsController.editGroup)
 
 router.post("/create", GroupsController.createGroup);
 router.put("/accept", GroupsController.acceptGroup);
@@ -20,3 +21,4 @@ router.put("/:groupId/:requesterId/accept", GroupsController.acceptRequest);
 router.put("/:groupId/:requesterId/reject", GroupsController.rejectRequest);
 
 module.exports = router;
+

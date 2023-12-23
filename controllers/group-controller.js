@@ -253,6 +253,36 @@ class GroupsController {
     }
   }
 
+
+    async editGroup(req, res) {
+        const { name, description, cover, groupId } = req.body;
+        const userId = req.userData.id;
+        const user = await User.findOne({ _id: userId, banned: false });
+        if (!user) {
+            const error = new HttpError("Không tìm thấy user!", 404);
+            return next(error);
+        }
+        try {
+            const update = { 
+                $set:{
+                    name: name,
+                    description: description,
+                    cover: cover,
+                }
+            };
+            await Group.updateOne({_id: groupId}, update);
+            res.json(true);
+        }
+
+        catch (error) {
+            console.error('Lỗi khi cập nhật thông tin!');
+            console.log(error);
+            next(error);
+        }
+    }
+
+
+
   async searchGroups(req, res, next) {
     const userId = req.userData.id;
     const user = await User.findOne({ _id: userId, banned: false });
