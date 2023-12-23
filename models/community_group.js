@@ -6,8 +6,8 @@ const { Schema, Types } = mongoose;
 const communityGroupSchema = new Schema(
   {
     name: { type: String, required: true },
-    description: { type: String },
-    cover: { type: String },
+    description: { type: String, default: "" },
+    cover: { type: String, default: "" },
     created_by: { type: Types.ObjectId, required: true, ref: "User" },
     visibility: {
       type: String,
