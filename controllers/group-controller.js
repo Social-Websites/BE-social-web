@@ -473,7 +473,7 @@ class GroupsController {
       return next(error);
     }
     try {
-      await Group.findOneAndUpdate(
+      await UserToGroup.findOneAndUpdate(
         { user: userId, group: groupId },
         { $set: { status: "MEMBER" } }
       );

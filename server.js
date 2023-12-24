@@ -119,6 +119,8 @@ DBconnect(() => {
           content = " liked your post";
         } else if (type == "comment") {
           content = " comment on your post";
+        } else if (type == "reply") {
+          content = " reply your comment";
         } else if (type == "post") {
           content = " create the post";
         } else if (type == "request") {
