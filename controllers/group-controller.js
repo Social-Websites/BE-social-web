@@ -374,6 +374,96 @@ class GroupsController {
     res.status(201).json({ post: newPost });
   }
 
+  async approveGroupPost(req, res, next) {
+    const userId = req.userData.id;
+    const postId = req.params.postId;
+
+    try {
+      const user = await User.findOne({ _id: userId, banned: false });
+      if (!user) {
+        const error = new HttpError(
+          "Người dùng không tồn tại hoặc bị cấm!",
+          404
+        );
+        return next(error);
+      }
+      const post = await Post.findOne({ _id: postId, status: "PENDING" });
+      if (!post) {
+        const error = new HttpError(
+          "Bài viết không tồn tại hoặc không thể duyệt!",
+          404
+        );
+        return next(error);
+      }
+      const userToGroup = await UserToGroup.findOne({
+        user: userId,
+        group: post.group,
+        status: "ADMIN",
+      });
+      if (!userToGroup) {
+        const error = new HttpError(
+          "Người dùng không có quyền duyệt bài viết!",
+          403
+        );
+        return next(error);
+      }
+      // Update status to "APPROVED"
+      post.status = "APPROVED";
+      await post.save();
+    } catch (err) {
+      console.log("Lỗi khi lưu bài viết: ", err);
+      const error = new HttpError("Có lỗi xảy ra, vui lòng thử lại!", 500);
+      return next(error);
+    }
+
+    res.json({ message: "Bài viết đã được duyệt!" });
+  }
+
+  async rejectGroupPost(req, res, next) {
+    const userId = req.userData.id;
+    const postId = req.params.postId;
+
+    try {
+      const user = await User.findOne({ _id: userId, banned: false });
+      if (!user) {
+        const error = new HttpError(
+          "Người dùng không tồn tại hoặc bị cấm!",
+          404
+        );
+        return next(error);
+      }
+      const post = await Post.findOne({ _id: postId, status: "PENDING" });
+      if (!post) {
+        const error = new HttpError(
+          "Bài viết không tồn tại hoặc không thể từ chối!",
+          404
+        );
+        return next(error);
+      }
+      const userToGroup = await UserToGroup.findOne({
+        user: userId,
+        group: post.group,
+        status: "ADMIN",
+      });
+      if (!userToGroup) {
+        const error = new HttpError(
+          "Người dùng không có quyền duyệt bài viết!",
+          403
+        );
+        return next(error);
+      }
+
+      post.deleted_by = { user: userId, user_role: "GROUP_ADMIN" };
+      await post.save();
+    } catch (err) {
+      console.log("Lỗi khi lưu bài viết: ", err);
+      const error = new HttpError("Có lỗi xảy ra, vui lòng thử lại!", 500);
+      return next(error);
+    }
+
+    res.json({ message: "Bài viết đã bị từ chối!" });
+  }
+
   async acceptGroup(req, res, next) {
     const userId = req.userData.id;
     const groupId = req.query.groupId;
