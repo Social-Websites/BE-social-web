@@ -102,6 +102,10 @@ const getUserByUsername = async (req, res, next) => {
       })
       .populate({
         path: "posts",
+        match: (baseMatch, virtual) => ({
+          ...virtual.options.match(baseMatch),
+          group: { $exists: false },
+        }),
         select: "creator",
       });
 

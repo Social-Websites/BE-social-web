@@ -324,6 +324,12 @@ const getSinglePost = async (req, res, next) => {
         foreignField: "_id",
         as: "reacts",
       })
+      .lookup({
+        from: "comments",
+        localField: "_id",
+        foreignField: "post",
+        as: "comments",
+      })
       .addFields({
         is_user_liked: {
           $in: [new mongoose.Types.ObjectId(userId), "$reacts.reacted_by"],
@@ -403,6 +409,7 @@ const getHomePosts = async (req, res, next) => {
           ],
           $nin: blockListIds.map((id) => new mongoose.Types.ObjectId(id)),
         },
+        group: { $exists: false },
         deleted_by: { $exists: false },
         $or: [{ banned: false }, { banned: { $exists: false } }],
       })
@@ -425,6 +432,12 @@ const getHomePosts = async (req, res, next) => {
         localField: "reacts",
         foreignField: "_id",
         as: "reacts",
+      })
+      .lookup({
+        from: "comments",
+        localField: "_id",
+        foreignField: "post",
+        as: "comments",
       })
       .addFields({
         is_user_liked: {
@@ -547,11 +560,13 @@ const getUserPosts = async (req, res, next) => {
       // Nếu userId không nằm trong blockList, sử dụng populate để lấy danh sách bài viết
       await user.populate({
         path: "posts",
+        match: { group: { $exists: false } },
         options: {
           sort: { created_at: -1 },
           skip: (page - 1) * limit,
           limit: limit,
         },
+        populate: { path: "comments", select: { _id: 1 } },
       });
 
       const savedPostIds = authUser.saved_posts.map((savedPost) =>

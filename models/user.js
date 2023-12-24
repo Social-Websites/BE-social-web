@@ -87,10 +87,10 @@ userSchema.virtual("posts", {
   ref: "Post",
   localField: "_id",
   foreignField: "creator",
-  match: {
+  match: (baseMatch) => ({
     deleted_by: { $exists: false },
     $or: [{ banned: false }, { banned: { $exists: false } }],
-  },
+  }),
 });
 
 //Plugins, methods, middlewares, statics, query helpers
