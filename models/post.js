@@ -37,10 +37,10 @@ postSchema.virtual("comments", {
   ref: "Comment",
   localField: "_id",
   foreignField: "post",
-  match: {
+  match: (baseMatch) => ({
     deleted_by: { $exists: false },
     $or: [{ banned: false }, { banned: { $exists: false } }],
-  },
+  }),
 });
 
 postSchema.plugin(uniqueValidator);
