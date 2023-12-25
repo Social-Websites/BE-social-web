@@ -3,6 +3,7 @@ const HttpError = require("./models/http-error");
 const { Server } = require("socket.io");
 const User = require("./models/user");
 const Notification = require("./models/notification");
+const Group = require("./models/community_group");
 const allowedOrigins = require("./configs/allowedOrigin");
 
 const session = require("express-session");
@@ -113,12 +114,14 @@ DBconnect(() => {
 
     socket.on(
       "sendNotification",
-      ({ sender_id, receiver_id, content_id, reponse, type }) => {
+      ({ sender_id, receiver_id, content_id, reponse, type, group_id }) => {
         let content = "";
         if (type == "like") {
           content = " liked your post";
         } else if (type == "comment") {
           content = " comment on your post";
+        } else if (type == "reply") {
+          content = " reply your comment";
         } else if (type == "post") {
           content = " create the post";
         } else if (type == "request") {
@@ -129,6 +132,18 @@ DBconnect(() => {
           content = " reject your friend request";
         } else if (type == "hide") {
           content = " admin deleted your post";
+        } else if (type == "acceptGroup") {
+          content = " has been a member of your group";
+        } else if (type == "rejectGroup") {
+          content = " reject your request";
+        } else if (type == "acceptMember") {
+          content = " You has been a member group";
+        } else if (type == "rejectMember") {
+          content = " reject your request";
+        } else if (type == "inviteGroup") {
+          content = " invite you to group";
+        } else if (type == "requestGroup") {
+          content = " want to join ";
         }
 
         if (type == "remove") {
@@ -149,12 +164,16 @@ DBconnect(() => {
             });
           });
         } else {
+          console.log("toi day chua");
           if (reponse !== null) {
+            console.log("xoa a");
             const requested = Notification.findOne({
               sender_id: receiver_id[0],
-              content_id,
+              user_id: sender_id,
+              content_id: null,
               reponse: null,
             }).exec();
+            console.log(requested);
             requested.then(async (notification) => {
               await Notification.deleteOne({ _id: notification?._id }).exec();
             });
@@ -166,12 +185,13 @@ DBconnect(() => {
               if (check == null || type != "like") {
                 const recieveIds = receiver_id;
                 recieveIds.forEach(async (reciever) => {
-                  if (type != "reject" && sender_id != reciever) {
+                  if ((type != "reject" && type != "rejectGroup" && type != "rejectMember") && sender_id != reciever) {
                     const newNotification = new Notification({
                       user_id: reciever,
                       sender_id: sender_id,
                       content: content,
                       content_id: content_id,
+                      group_id: group_id,
                       reponse: reponse,
                       read: false,
                     });
@@ -182,21 +202,46 @@ DBconnect(() => {
                       .then(async (notification) => {
                         console.log("Thông báo đã được tạo:", notification);
                         const sendUserSocket = onlineUsers.get(reciever);
-                        const sender = await User.findById(
-                          notification.sender_id
-                        ).exec();
-                        const data = {
-                          _id: notification._id,
-                          sender_id: notification.sender_id,
-                          senderName: sender.username,
-                          img: sender.profile_picture,
-                          content_id: notification.content_id,
-                          content: notification.content,
-                          reponse: reponse,
-                          read: false,
-                          createAt: notification.created_at,
-                        };
-
+                        let data;
+                        if(group_id){
+                          const sender = await User.findById(
+                            notification.sender_id
+                          ).exec();
+                          const group = await Group.findById(
+                            notification.group_id
+                          ).exec();
+                          data = {
+                            _id: notification._id,
+                            sender_id: notification.sender_id,
+                            senderName: sender.username,
+                            img: sender.profile_picture,
+                            content_id: notification.content_id,
+                            content: notification.content,
+                            reponse: reponse,
+                            group_id: group._id,
+                            group_cover: group.cover,
+                            group_name: group.name,
+                            read: false,
+                            createAt: notification.created_at,
+                          };
+                        } else{
+                          const sender = await User.findById(
+                            notification.sender_id
+                          ).exec();
+                          data = {
+                            _id: notification._id,
+                            sender_id: notification.sender_id,
+                            senderName: sender.username,
+                            img: sender.profile_picture,
+                            content_id: notification.content_id,
+                            content: notification.content,
+                            reponse: reponse,
+                            group_id: group_id,
+                            read: false,
+                            createAt: notification.created_at,
+                          };
+                        }
+                      
                         if (sendUserSocket) {
                           console.log("da gui cho " + sendUserSocket);
                           socket
@@ -223,15 +268,6 @@ DBconnect(() => {
   });
 });
 
-const oneDay = 1000 * 60 * 60 * 24;
-// app.use(
-//   session({
-//     secret: "team2-uptech",
-//     resave: false,
-//     saveUninitialized: true,
-//     cookie: { maxAge: oneDay },
-//   })
-// );
 
 app.use(express.json());
 app.use("/api", route);

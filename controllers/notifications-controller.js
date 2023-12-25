@@ -1,5 +1,6 @@
 
 const User = require("../models/user");
+const Group = require("../models/community_group");
 const Notification = require("../models/notification");
 
 
@@ -17,9 +18,11 @@ class NotificationsController {
 
         if(notifications){
             for (const notification of notifications) {
-            const sender = await User.findById(notification.sender_id).exec();
-            notificationsInfo.push({_id: notification._id, sender_id: notification.sender_id, senderName: sender?.username, 
-                img: sender?.profile_picture, content_id: notification.content_id, content: notification.content, reponse: notification.reponse, read:notification.read, createAt: notification.created_at});
+                const sender = await User.findById(notification.sender_id).exec();
+                const group = await Group.findById(notification.group_id).exec();
+                notificationsInfo.push({_id: notification._id, sender_id: notification.sender_id, senderName: sender?.username, 
+                    img: sender?.profile_picture, content_id: notification.content_id, group_id: notification.group_id, group_cover: group?.cover, group_name: group?.name,
+                    content: notification.content, reponse: notification.reponse, read:notification.read, createAt: notification.created_at});
             }
         }
         res.json(notificationsInfo);
@@ -31,7 +34,7 @@ class NotificationsController {
     }
 
     async sendNotification(req, res, next) {
-        const { sender_id, receiver_id, content_id, type } = req.body;
+        const { sender_id, receiver_id, content_id, group_id, type } = req.body;
         let content = ""
         if(type == "like"){
             content = " liked your post";
@@ -46,6 +49,7 @@ class NotificationsController {
             sender_id: sender_id,
             content: content,
             content_id: content_id,
+            group_id: group_id,
             read: false
         });
         

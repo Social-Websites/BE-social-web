@@ -297,20 +297,23 @@ class GroupsController {
       const groups = await Group.find({ name: regex });
       let groupsInfo = [];
       for (const group of groups) {
-        const findgroup = await UserToGroup.find({
-          user: userId,
-          group: group._id,
-        });
-        console.log(findgroup);
-        let status = null;
-        if (findgroup.length > 0) {
-          status = findgroup[0].status;
-        }
+        const [findgroup, ownergroup] = await Promise.all([
+          UserToGroup.findOne({
+            user: userId,
+            group: group._id,
+          }),
+          UserToGroup.findOne({
+            group: group._id,
+            status: "ADMIN"
+          })
+        ]);
+
         groupsInfo.push({
           _id: group._id,
           name: group.name,
           cover: group.cover,
-          status: status,
+          owner: ownergroup?.user,
+          status: findgroup?.status,
         });
       }
 
@@ -473,7 +476,7 @@ class GroupsController {
       return next(error);
     }
     try {
-      await Group.findOneAndUpdate(
+      await UserToGroup.findOneAndUpdate(
         { user: userId, group: groupId },
         { $set: { status: "MEMBER" } }
       );
