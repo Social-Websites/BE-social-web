@@ -8,6 +8,7 @@ const notificationSchema = new Schema({
   sender_id: { type: Types.ObjectId, required: true, ref: "User" },
   content: { type: String, required: true },
   content_id: { type: Types.ObjectId, ref: "Post" },
+  group_id: { type: Types.ObjectId, ref: "Group" },
   reponse: { type: Boolean },
   read: { type: Boolean, required: true },
 }, {
