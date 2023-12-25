@@ -17,6 +17,7 @@ const communityGroupSchema = new Schema(
   },
   {
     toJSON: { virtuals: true },
+
     timestamps: { createdAt: "created_at", updatedAt: "updated_at" },
   }
 );
@@ -29,6 +30,13 @@ communityGroupSchema.virtual("posts", {
     deleted_by: { $exists: false },
     $or: [{ banned: false }, { banned: { $exists: false } }],
   }),
+});
+
+communityGroupSchema.virtual("members", {
+  ref: "User_to_group",
+  localField: "_id",
+  foreignField: "group", // Dùng _id để làm trung gian, vì không có trường group trong User
+  match: (baseMatch) => ({ status: { $in: ["MEMBER", "ADMIN"] } }),
 });
 
 communityGroupSchema.plugin(uniqueValidator);
