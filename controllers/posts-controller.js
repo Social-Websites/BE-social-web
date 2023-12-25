@@ -5,6 +5,7 @@ const React = require("../models/react");
 const ReportedPost = require("../models/reported_post");
 const User = require("../models/user");
 const Comment = require("../models/comment");
+const UserToGroup = require("../models/user_to_group");
 const { validationResult } = require("express-validator");
 
 const createPost = async (req, res, next) => {
@@ -319,6 +320,12 @@ const getSinglePost = async (req, res, next) => {
         ],
       })
       .lookup({
+        from: "groups",
+        localField: "group",
+        foreignField: "_id",
+        as: "group",
+      })
+      .lookup({
         from: "reacts",
         localField: "reacts",
         foreignField: "_id",
@@ -341,6 +348,7 @@ const getSinglePost = async (req, res, next) => {
         },
       })
       .project({
+        group: { _id: 1, name: 1, cover: 1 },
         creator: { _id: 1, username: 1, profile_picture: 1, block_list: 1 },
         is_user_liked: 1,
         is_saved: 1,
@@ -354,17 +362,54 @@ const getSinglePost = async (req, res, next) => {
         edit_at: 1,
         shared_by: 1,
         original_post: 1,
+        status: 1,
+      })
+      .project({
+        group: {
+          $ifNull: [
+            { $arrayElemAt: ["$group", 0] },
+            undefined, // Giá trị mặc định khi $group là mảng rỗng
+          ],
+        },
+        creator: { _id: 1, username: 1, profile_picture: 1, block_list: 1 },
+        is_user_liked: 1,
+        is_saved: 1,
+        reacts_count: 1,
+        comments_count: 1,
+        updated_at: 1,
+        created_at: 1,
+        media: 1,
+        content: 1,
+        has_read: 1,
+        edit_at: 1,
+        shared_by: 1,
+        original_post: 1,
+        status: 1,
       });
 
-    if (!post || post.length === 0) {
+    if (
+      !post ||
+      post.length === 0 ||
+      post[0].creator.block_list.includes(userId)
+    ) {
       const error = new HttpError("Không tìm thấy bài viết!", 404);
       return next(error);
     }
 
-    // Kiểm tra xem người dùng hiện tại có bị chặn bởi người tạo bài viết không
-    if (post[0].creator.block_list.includes(userId)) {
-      const error = new HttpError("Bài viết không tồn tại!", 404);
-      return next(error);
+    if (post[0]?.group) {
+      const userToGroups = await UserToGroup.findOne({
+        user: userId,
+        group: post[0].group,
+        status: { $in: ["MEMBER", "ADMIN"] },
+      }).select("_id");
+
+      console.log(userToGroups);
+      console.log(post[0].status);
+
+      if (!userToGroups || post[0].status !== "APPROVED") {
+        const error = new HttpError("Không có quyền truy cập!", 403);
+        return next(error);
+      }
     }
 
     res.json({ post: post[0] });
@@ -399,17 +444,33 @@ const getHomePosts = async (req, res, next) => {
 
     const savedPostIds = user.saved_posts.map((savedPost) => savedPost.post);
 
-    // Lấy danh sách bài viết theo các điều kiện
+    // Lấy danh sách group mà người dùng là thành viên
+    const userGroups = await UserToGroup.find({
+      user: userId,
+      status: { $in: ["MEMBER", "ADMIN"] },
+    }).select("group");
+    const groupIds = userGroups.map((userGroup) => userGroup.group);
+
+    // Lấy danh sách post dựa trên danh sách bạn bè và group
     const posts = await Post.aggregate()
       .match({
-        creator: {
-          $in: [
-            ...friendIds.map((id) => new mongoose.Types.ObjectId(id)),
-            new mongoose.Types.ObjectId(userId),
-          ],
-          $nin: blockListIds.map((id) => new mongoose.Types.ObjectId(id)),
-        },
-        group: { $exists: false },
+        $or: [
+          // Post của bạn bè
+          {
+            creator: {
+              $in: [
+                ...friendIds.map((id) => new mongoose.Types.ObjectId(id)),
+                new mongoose.Types.ObjectId(userId),
+              ],
+              $nin: blockListIds.map((id) => new mongoose.Types.ObjectId(id)),
+            },
+          },
+          // Post của group mà người dùng là thành viên
+          {
+            group: { $in: groupIds },
+            status: "APPROVED", // Lọc chỉ lấy post của group có status là APPROVED
+          },
+        ],
         deleted_by: { $exists: false },
         $or: [{ banned: false }, { banned: { $exists: false } }],
       })
@@ -428,9 +489,15 @@ const getHomePosts = async (req, res, next) => {
         ],
       })
       .lookup({
-        from: "reacts",
-        localField: "reacts",
+        from: "groups",
+        localField: "group",
         foreignField: "_id",
+        as: "group",
+      })
+      .lookup({
+        from: "reacts",
+        localField: "_id",
+        foreignField: "post",
         as: "reacts",
       })
       .lookup({
@@ -450,6 +517,28 @@ const getHomePosts = async (req, res, next) => {
         },
       })
       .project({
+        group: { _id: 1, name: 1, cover: 1 },
+        creator: { _id: 1, username: 1, profile_picture: 1, block_list: 1 },
+        is_user_liked: 1,
+        is_saved: 1,
+        reacts_count: 1,
+        comments_count: 1,
+        updated_at: 1,
+        created_at: 1,
+        media: 1,
+        content: 1,
+        has_read: 1,
+        edit_at: 1,
+        shared_by: 1,
+        original_post: 1,
+      })
+      .project({
+        group: {
+          $ifNull: [
+            { $arrayElemAt: ["$group", 0] },
+            undefined, // Giá trị mặc định khi $group là mảng rỗng
+          ],
+        },
         creator: { _id: 1, username: 1, profile_picture: 1, block_list: 1 },
         is_user_liked: 1,
         is_saved: 1,
@@ -509,7 +598,7 @@ const getHomePosts = async (req, res, next) => {
       (post) => !post.creator.block_list.includes(userId)
     );
 
-    res.status(200).json({ posts: filteredPosts });
+    res.json({ posts: filteredPosts });
   } catch (err) {
     console.log("Bài viết 2===============: ", err);
     const error = new HttpError(

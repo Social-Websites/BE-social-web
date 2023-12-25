@@ -177,7 +177,13 @@ class GroupsController {
         const error = new HttpError("Không tìm thấy user!", 404);
         return next(error);
       }
-      const group = await Group.findOne({ _id: groupId });
+      const group = await Group.findOne({ _id: groupId }); /*.populate({
+        path: "members",
+        populate: {
+          path: "user",
+          select: "username full_name profile_picture",
+        },
+      });*/
       if (!group) {
         const error = new HttpError("Không tìm thấy nhóm!", 404);
         return next(error);
@@ -304,8 +310,8 @@ class GroupsController {
           }),
           UserToGroup.findOne({
             group: group._id,
-            status: "ADMIN"
-          })
+            status: "ADMIN",
+          }),
         ]);
 
         groupsInfo.push({
