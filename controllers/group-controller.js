@@ -85,9 +85,15 @@ class GroupsController {
       }).populate("group");
       const groups = userToGroup.map((userGroup) => userGroup.group);
       const groupInfoPromises = groups.map(async (group) => {
-        const g = await Group.findById(group._id);
+        const [g, ownergroup] = await Promise.all([
+          Group.findById(group._id),
+          UserToGroup.findOne({
+            group: group._id,
+            status: "ADMIN",
+          }),
+        ]);
         const { _id, name, cover } = g;
-        return { _id, name, cover, status: "INVITED" };
+        return { _id, name, cover, owner: ownergroup.user, status: "INVITED" };
       });
       const groupInfo = await Promise.all(groupInfoPromises);
       res.json({ groups: groupInfo });

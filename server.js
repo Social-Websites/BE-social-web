@@ -116,6 +116,7 @@ DBconnect(() => {
       "sendNotification",
       ({ sender_id, receiver_id, content_id, reponse, type, group_id }) => {
         let content = "";
+        let ownerGroup;
         if (type == "like") {
           content = " liked your post";
         } else if (type == "comment") {
@@ -144,6 +145,9 @@ DBconnect(() => {
           content = " invite you to group";
         } else if (type == "requestGroup") {
           content = " want to join ";
+        } else if (type == "postGroup") {
+          content = " has a new post";
+          ownerGroup = UserToGroup.findOne({ group: group_id, status: "ADMIN" }).exec();
         }
 
         if (type == "remove") {
@@ -152,7 +156,7 @@ DBconnect(() => {
             content_id,
           }).exec();
           requested.then((notification) => {
-            const recieveIds = receiver_id;
+            const recieveIds = receiver_id || ownerGroup;
             recieveIds.forEach(async (reciever) => {
               const sendUserSocket = onlineUsers.get(reciever);
               const data = { content_id: notification?._id, remove: true };
