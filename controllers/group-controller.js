@@ -8,6 +8,38 @@ const { validationResult } = require("express-validator");
 const React = require("../models/react");
 
 class GroupsController {
+
+
+  // Lấy 1 group
+  async get1Group(req, res, next) {
+    const userId = req.userData.id;
+    const group_id = req.query.group;
+    try {
+      const user = await User.findOne({ _id: userId, banned: false });
+      if (!user) {
+        const error = new HttpError("Không tìm thấy user!", 404);
+        return next(error);
+      }
+      const userToGroup = await UserToGroup.findOne({
+        user: userId,
+        group_id: group_id,
+      })
+
+      const g = await Group.findById(group_id);
+      console.log("day neeeeeeeeeeeeeeeeeeeeeeeeeeee eeeeeeeee",g)
+
+      res.json({ _id: g._id, name: g.name, cover: g.cover, status: userToGroup.status });
+      
+    } catch (err) {
+      console.log(err);
+      const error = new HttpError(
+        "Có lỗi khi lấy bài viết, vui lòng thử lại!",
+        500
+      );
+      return next(error);
+    }
+  }
+
   // Sử dụng các hàm trên để lấy thông tin các group mà người dùng là thành viên
   async getMemberGroups(req, res, next) {
     const userId = req.userData.id;
@@ -20,7 +52,7 @@ class GroupsController {
       const userToGroup = await UserToGroup.find({
         user: userId,
         status: "MEMBER",
-      }).populate("group");
+      })
       const groups = userToGroup.map((userGroup) => userGroup.group);
       const groupInfoPromises = groups.map(async (group) => {
         const g = await Group.findById(group._id);
@@ -51,7 +83,7 @@ class GroupsController {
       const userToGroup = await UserToGroup.find({
         user: userId,
         status: "ADMIN",
-      }).populate("group");
+      })
       const groups = userToGroup.map((userGroup) => userGroup.group);
       const groupInfoPromises = groups.map(async (group) => {
         const g = await Group.findById(group._id);
@@ -82,7 +114,7 @@ class GroupsController {
       const userToGroup = await UserToGroup.find({
         user: userId,
         status: "INVITED",
-      }).populate("group");
+      })
       const groups = userToGroup.map((userGroup) => userGroup.group);
       const groupInfoPromises = groups.map(async (group) => {
         const [g, ownergroup] = await Promise.all([
