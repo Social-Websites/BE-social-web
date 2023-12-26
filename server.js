@@ -2,6 +2,7 @@ const express = require("express");
 const HttpError = require("./models/http-error");
 const { Server } = require("socket.io");
 const User = require("./models/user");
+const UserToGroup = require("./models/user_to_group");
 const Notification = require("./models/notification");
 const Group = require("./models/community_group");
 const allowedOrigins = require("./configs/allowedOrigin");
@@ -116,6 +117,7 @@ DBconnect(() => {
       "sendNotification",
       ({ sender_id, receiver_id, content_id, reponse, type, group_id }) => {
         let content = "";
+        let userGroup = [];
         if (type == "like") {
           content = " liked your post";
         } else if (type == "comment") {
@@ -135,24 +137,40 @@ DBconnect(() => {
         } else if (type == "acceptGroup") {
           content = " has been a member of your group";
         } else if (type == "rejectGroup") {
-          content = " reject your request";
+          content = " reject your group request";
         } else if (type == "acceptMember") {
           content = " You has been a member group";
         } else if (type == "rejectMember") {
-          content = " reject your request";
+          content = " reject your member request";
         } else if (type == "inviteGroup") {
           content = " invite you to group";
         } else if (type == "requestGroup") {
           content = " want to join ";
+        } else if (type == "postGroup") {
+          content = " has a new post";
+          UserToGroup.find({ group: group_id, status: "MEMBER" })
+          .exec()
+          .then(users => {
+            for (const user of users) {
+              const userId = user.user;
+              // Sử dụng trường `user` ở đây, ví dụ:
+              userGroup.push(userId);
+            }
+          })
+          .catch(error => {
+            // Xử lý lỗi nếu có
+            console.error(error);
+          });
+          
         }
-
+        console.log(userGroup)
         if (type == "remove") {
           const requested = Notification.findOne({
             sender_id,
             content_id,
           }).exec();
           requested.then((notification) => {
-            const recieveIds = receiver_id;
+            const recieveIds = receiver_id || userGroup;
             recieveIds.forEach(async (reciever) => {
               const sendUserSocket = onlineUsers.get(reciever);
               const data = { content_id: notification?._id, remove: true };
@@ -165,7 +183,7 @@ DBconnect(() => {
           });
         } else {
           console.log("toi day chua");
-          if (reponse !== null) {
+          if (reponse) {
             console.log("xoa a");
             const requested = Notification.findOne({
               sender_id: receiver_id[0],
@@ -183,7 +201,7 @@ DBconnect(() => {
             .then((check) => {
               console.log(check);
               if (check == null || type != "like") {
-                const recieveIds = receiver_id;
+                const recieveIds = receiver_id || userGroup;
                 recieveIds.forEach(async (reciever) => {
                   if ((type != "reject" && type != "rejectGroup" && type != "rejectMember") && sender_id != reciever) {
                     const newNotification = new Notification({

@@ -453,27 +453,34 @@ const getHomePosts = async (req, res, next) => {
 
     // Lấy danh sách post dựa trên danh sách bạn bè và group
     const posts = await Post.aggregate()
-      .match({
-        $or: [
-          // Post của bạn bè
-          {
-            creator: {
-              $in: [
-                ...friendIds.map((id) => new mongoose.Types.ObjectId(id)),
-                new mongoose.Types.ObjectId(userId),
-              ],
-              $nin: blockListIds.map((id) => new mongoose.Types.ObjectId(id)),
-            },
+    .match({
+      $or: [
+        {
+          // Điều kiện cho các bài viết có trường group tồn tại
+          group: { $exists: true },
+          group: { $in: groupIds },
+          status: "APPROVED",
+          deleted_by: { $exists: false },
+          $or: [{ banned: false }, { banned: { $exists: false } }],
+        },
+        {
+          // Điều kiện cho các bài viết không có trường group
+          group: { $exists: false },
+
+          creator: {
+            $in: [
+              ...friendIds.map((id) => new mongoose.Types.ObjectId(id)),
+              new mongoose.Types.ObjectId(userId),
+            ],
+            $nin: blockListIds.map((id) => new mongoose.Types.ObjectId(id)),
           },
-          // Post của group mà người dùng là thành viên
-          {
-            group: { $in: groupIds },
-            status: "APPROVED", // Lọc chỉ lấy post của group có status là APPROVED
-          },
-        ],
-        deleted_by: { $exists: false },
-        $or: [{ banned: false }, { banned: { $exists: false } }],
-      })
+          status: { $exists: false },
+
+          deleted_by: { $exists: false },
+          $or: [{ banned: false }, { banned: { $exists: false } }],
+        },
+      ],
+    })
       .lookup({
         from: "users",
         localField: "creator",

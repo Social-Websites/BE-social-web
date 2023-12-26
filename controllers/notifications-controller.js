@@ -10,7 +10,7 @@ class NotificationsController {
         try{
         const userId = req.params.userId;
         const skip = parseInt(req.query.skip) || 0; // Số lượng tin nhắn đã lấy trước đó, mặc định là 0
-        const notifications = await Notification.find({user_id: userId})
+        const notifications = await Notification.find({user_id: userId, $or: [{ reponse: { $exists: false } }, { reponse: true }, { reponse: null }]})
         .sort({ created_at: -1 })
         .skip(skip) // Bỏ qua số lượng tin nhắn đã lấy trước đó
         .limit(20) // Giới hạn 20 tin nhắn
@@ -18,11 +18,13 @@ class NotificationsController {
 
         if(notifications){
             for (const notification of notifications) {
+                
                 const sender = await User.findById(notification.sender_id).exec();
                 const group = await Group.findById(notification.group_id).exec();
                 notificationsInfo.push({_id: notification._id, sender_id: notification.sender_id, senderName: sender?.username, 
                     img: sender?.profile_picture, content_id: notification.content_id, group_id: notification.group_id, group_cover: group?.cover, group_name: group?.name,
                     content: notification.content, reponse: notification.reponse, read:notification.read, createAt: notification.created_at});
+                
             }
         }
         res.json(notificationsInfo);
