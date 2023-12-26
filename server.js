@@ -115,7 +115,7 @@ DBconnect(() => {
 
     socket.on(
       "sendNotification",
-      ({ sender_id, receiver_id, content_id, reponse, type, group_id }) => {
+      async ({ sender_id, receiver_id, content_id, reponse, type, group_id }) => {
         let content = "";
         let userGroup = [];
         if (type == "like") {
@@ -148,19 +148,16 @@ DBconnect(() => {
           content = " want to join ";
         } else if (type == "postGroup") {
           content = " has a new post";
-          UserToGroup.find({ group: group_id, status: "MEMBER" })
-          .exec()
-          .then(users => {
-            for (const user of users) {
-              const userId = user.user;
-              // Sử dụng trường `user` ở đây, ví dụ:
-              userGroup.push(userId);
-            }
-          })
-          .catch(error => {
+          try {
+            const users = await UserToGroup.find({ group: group_id, status: "MEMBER" }).exec();
+        
+            userGroup = users.map(userg => userg.user.toString()); // Lưu các user vào mảng userGroup
+        
+            console.log(userGroup);
+          } catch (error) {
             // Xử lý lỗi nếu có
             console.error(error);
-          });
+          }
           
         }
         console.log(userGroup)
@@ -183,10 +180,10 @@ DBconnect(() => {
           });
         } else {
           console.log("toi day chua");
-          if (reponse) {
+          if (reponse !== null) {
             console.log("xoa a");
             const requested = Notification.findOne({
-              sender_id: receiver_id[0],
+              sender_id: receiver_id && receiver_id[0] || userGroup && userGroup[0],
               user_id: sender_id,
               content_id: null,
               reponse: null,
@@ -202,6 +199,7 @@ DBconnect(() => {
               console.log(check);
               if (check == null || type != "like") {
                 const recieveIds = receiver_id || userGroup;
+                console.log("nguoi nhan ne:",recieveIds)
                 recieveIds.forEach(async (reciever) => {
                   if ((type != "reject" && type != "rejectGroup" && type != "rejectMember") && sender_id != reciever) {
                     const newNotification = new Notification({
@@ -213,13 +211,14 @@ DBconnect(() => {
                       reponse: reponse,
                       read: false,
                     });
-
+                      
                     // Lưu thông báo vào cơ sở dữ liệu
                     await newNotification
                       .save()
                       .then(async (notification) => {
                         console.log("Thông báo đã được tạo:", notification);
                         const sendUserSocket = onlineUsers.get(reciever);
+                        console.log("userSocket", sendUserSocket, reciever, onlineUsers);
                         let data;
                         if(group_id){
                           const sender = await User.findById(
