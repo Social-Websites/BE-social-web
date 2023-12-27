@@ -981,6 +981,7 @@ const comment = async (req, res, next) => {
     await newComment.save({ session: sess });
     console.log("presave");
     await newComment.populate("user", "username profile_picture");
+    await newComment.populate("parent", "user");
     await sess.commitTransaction();
 
     res.status(201).json({ comment: newComment });
