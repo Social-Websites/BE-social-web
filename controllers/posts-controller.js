@@ -656,7 +656,10 @@ const getUserPosts = async (req, res, next) => {
       // Nếu userId không nằm trong blockList, sử dụng populate để lấy danh sách bài viết
       await user.populate({
         path: "posts",
-        match: { group: { $exists: false } },
+        match: (baseMatch, virtual) => ({
+          ...virtual.options.match(baseMatch),
+          group: { $exists: false },
+        }),
         options: {
           sort: { created_at: -1 },
           skip: (page - 1) * limit,
