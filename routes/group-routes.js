@@ -5,6 +5,7 @@ const tokenHandler = require("../middlewares/token-handler");
 const { check } = require("express-validator");
 router.use(tokenHandler.verifyAccessToken);
 
+router.get("/", GroupsController.editGroup);
 router.get("/admin", GroupsController.getAdminGroups);
 router.get("/member", GroupsController.getMemberGroups);
 router.get("/invited", GroupsController.getInvitedGroups);
