@@ -453,34 +453,34 @@ const getHomePosts = async (req, res, next) => {
 
     // Lấy danh sách post dựa trên danh sách bạn bè và group
     const posts = await Post.aggregate()
-    .match({
-      $or: [
-        {
-          // Điều kiện cho các bài viết có trường group tồn tại
-          group: { $exists: true },
-          group: { $in: groupIds },
-          status: "APPROVED",
-          deleted_by: { $exists: false },
-          $or: [{ banned: false }, { banned: { $exists: false } }],
-        },
-        {
-          // Điều kiện cho các bài viết không có trường group
-          group: { $exists: false },
-
-          creator: {
-            $in: [
-              ...friendIds.map((id) => new mongoose.Types.ObjectId(id)),
-              new mongoose.Types.ObjectId(userId),
-            ],
-            $nin: blockListIds.map((id) => new mongoose.Types.ObjectId(id)),
+      .match({
+        $or: [
+          {
+            // Điều kiện cho các bài viết có trường group tồn tại
+            group: { $exists: true },
+            group: { $in: groupIds },
+            status: "APPROVED",
+            deleted_by: { $exists: false },
+            $or: [{ banned: false }, { banned: { $exists: false } }],
           },
-          status: { $exists: false },
+          {
+            // Điều kiện cho các bài viết không có trường group
+            group: { $exists: false },
 
-          deleted_by: { $exists: false },
-          $or: [{ banned: false }, { banned: { $exists: false } }],
-        },
-      ],
-    })
+            creator: {
+              $in: [
+                ...friendIds.map((id) => new mongoose.Types.ObjectId(id)),
+                new mongoose.Types.ObjectId(userId),
+              ],
+              $nin: blockListIds.map((id) => new mongoose.Types.ObjectId(id)),
+            },
+            status: { $exists: false },
+
+            deleted_by: { $exists: false },
+            $or: [{ banned: false }, { banned: { $exists: false } }],
+          },
+        ],
+      })
       .lookup({
         from: "users",
         localField: "creator",
@@ -656,7 +656,10 @@ const getUserPosts = async (req, res, next) => {
       // Nếu userId không nằm trong blockList, sử dụng populate để lấy danh sách bài viết
       await user.populate({
         path: "posts",
-        match: { group: { $exists: false } },
+        match: (baseMatch, virtual) => ({
+          ...virtual.options.match(baseMatch),
+          group: { $exists: false },
+        }),
         options: {
           sort: { created_at: -1 },
           skip: (page - 1) * limit,
@@ -979,7 +982,6 @@ const comment = async (req, res, next) => {
     const sess = await mongoose.startSession();
     sess.startTransaction();
     await newComment.save({ session: sess });
-    console.log("presave");
     await newComment.populate("user", "username profile_picture");
     await newComment.populate("parent", "user");
     await sess.commitTransaction();
