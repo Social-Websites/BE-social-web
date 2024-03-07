@@ -182,7 +182,71 @@ const login = async (req, res, next) => {
 
   res.json({ accessToken: accessToken });
 };
+const mlogin = async (req, res, next) => {
+  const { username, password } = req.body;
 
+  let existingUser;
+  try {
+    existingUser = await User.findOne({
+      username: username,
+      admin: false,
+    }).select("+password");
+  } catch (err) {
+    const error = new HttpError("Có lỗi xảy ra, vui lòng thử lại sau!", 500);
+    return next(error);
+  }
+
+  if (!existingUser) {
+    const error = new HttpError("Tên đăng nhập hoặc mật khẩu không đúng!", 401);
+    return next(error);
+  }
+
+  if (existingUser.banned) {
+    const error = new HttpError(
+      "Tài khoản đã bị admin khóa, vui lòng liên hệ với admin!",
+      403
+    );
+    return next(error);
+  }
+
+  let isValidPassword;
+  try {
+    isValidPassword = await existingUser.comparePassword(password);
+  } catch (err) {
+    const error = new HttpError(
+      "Có lỗi khi đăng nhập, vui lòng thử lại sau!",
+      500
+    );
+    return next(error);
+  }
+
+  if (!isValidPassword) {
+    const error = new HttpError("Tên đăng nhập hoặc mật khẩu không đúng!", 401);
+    return next(error);
+  }
+
+  let accessToken;
+  let refreshToken;
+  try {
+    accessToken = tokenHandler.generateToken(existingUser, "access", "7h");
+    refreshToken = tokenHandler.generateToken(existingUser, "refresh", "7d");
+  } catch (err) {
+    const error = new HttpError(
+      "Có lỗi trong quá trình đăng nhập, vui lòng thử lại sau!",
+      500
+    );
+    return next(error);
+  }
+
+  res.cookie("jwt", refreshToken, {
+    httpOnly: true, // access only by webserver
+    secure: true, // https
+    sameSite: "None", // cross-site cookie
+    maxAge: 1000 * 60 * 60 * 24 * 7, // cookie expiry: set to match rT
+  });
+
+  res.json({ accessToken: accessToken ,refreshToken: refreshToken});
+};
 const aLogin = async (req, res, next) => {
   const { username, password } = req.body;
 
@@ -287,7 +351,37 @@ const refresh = async (req, res, next) => {
 
   res.json({ accessToken: accessToken });
 };
+const mRefresh = async (req,res,next) => {
+  const refreshToken = req.body.refreshToken;
+  const decodedToken = tokenHandler.verifyRefreshToken(refreshToken);
+  if (!decodedToken) {
+    const error = new HttpError("Có lỗi khi xác thực!", 403);
+    return next(error);
+  }
+  let accessToken;
+  try {
+    const existingUser = await User.findById(decodedToken.id).select(
+      "+password"
+    );
 
+    if (!existingUser) {
+      const error = new HttpError("Không thể xác thực!", 401);
+      return next(error);
+    }
+
+    if (existingUser.banned) {
+      const error = new HttpError("Tài khoản đã bị khóa!", 403);
+      return next(error);
+    }
+
+    accessToken = tokenHandler.generateToken(existingUser, "access", "7h");
+  } catch (err) {
+    const error = new HttpError("Có lỗi xảy ra, vui lòng thử lại sau!", 500);
+    return next(error);
+  }
+
+  res.json({ accessToken: accessToken, refreshToken: refreshToken });
+};
 const logout = (req, res) => {
   const cookies = req.cookies;
   if (!cookies?.jwt) return res.sendStatus(204);
@@ -426,8 +520,10 @@ const resetPassword = async (req, res, next) => {
 exports.getOtpSignUp = getOtpSignUp;
 exports.signUp = signUp;
 exports.login = login;
+exports.mlogin = mlogin;
 exports.aLogin = aLogin;
 exports.refresh = refresh;
+exports.mRefresh = mRefresh;
 exports.logout = logout;
 exports.sendResetVerification = sendResetVerification;
 exports.verifyResetLink = verifyResetLink;
