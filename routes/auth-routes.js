@@ -6,8 +6,11 @@ const router = express.Router();
 
 //Cấp lại access token
 router.get("/refresh", AuthController.refresh);
+router.post("/mrefresh", AuthController.mRefresh);
+
 
 router.post("/login", AuthController.login);
+router.post("/mlogin", AuthController.mlogin);
 router.post("/alogin", AuthController.aLogin);
 router.get("/logout", AuthController.logout);
 
