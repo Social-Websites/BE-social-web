@@ -746,7 +746,7 @@ const getSavedPosts = async (req, res, next) => {
         return {
           _id: post._id,
           reacts_count: post.reacts.length,
-          comments_count: post.comments.length,
+          //comments_count: post.comments.length,
           created_at: post.created_at,
           media: post.media,
           content: post.content,
