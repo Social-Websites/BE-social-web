@@ -238,14 +238,7 @@ const mlogin = async (req, res, next) => {
     return next(error);
   }
 
-  res.cookie("jwt", refreshToken, {
-    httpOnly: true, // access only by webserver
-    secure: true, // https
-    sameSite: "None", // cross-site cookie
-    maxAge: 1000 * 60 * 60 * 24 * 7, // cookie expiry: set to match rT
-  });
-
-  res.json({ accessToken: accessToken ,refreshToken: refreshToken});
+  res.json({ accessToken: accessToken, refreshToken: refreshToken });
 };
 const aLogin = async (req, res, next) => {
   const { username, password } = req.body;
@@ -351,7 +344,7 @@ const refresh = async (req, res, next) => {
 
   res.json({ accessToken: accessToken });
 };
-const mRefresh = async (req,res,next) => {
+const mRefresh = async (req, res, next) => {
   const refreshToken = req.body.refreshToken;
   const decodedToken = tokenHandler.verifyRefreshToken(refreshToken);
   if (!decodedToken) {
