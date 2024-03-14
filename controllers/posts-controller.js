@@ -455,8 +455,18 @@ const getHomePosts = async (req, res, next) => {
     const posts = await Post.aggregate()
       .match({
         $or: [
-          // Post của bạn bè
           {
+            // Điều kiện cho các bài viết có trường group tồn tại
+            group: { $exists: true },
+            group: { $in: groupIds },
+            status: "APPROVED",
+            deleted_by: { $exists: false },
+            $or: [{ banned: false }, { banned: { $exists: false } }],
+          },
+          {
+            // Điều kiện cho các bài viết không có trường group
+            group: { $exists: false },
+
             creator: {
               $in: [
                 ...friendIds.map((id) => new mongoose.Types.ObjectId(id)),
@@ -464,15 +474,12 @@ const getHomePosts = async (req, res, next) => {
               ],
               $nin: blockListIds.map((id) => new mongoose.Types.ObjectId(id)),
             },
-          },
-          // Post của group mà người dùng là thành viên
-          {
-            group: { $in: groupIds },
-            status: "APPROVED", // Lọc chỉ lấy post của group có status là APPROVED
+            status: { $exists: false },
+
+            deleted_by: { $exists: false },
+            $or: [{ banned: false }, { banned: { $exists: false } }],
           },
         ],
-        deleted_by: { $exists: false },
-        $or: [{ banned: false }, { banned: { $exists: false } }],
       })
       .lookup({
         from: "users",
@@ -649,7 +656,10 @@ const getUserPosts = async (req, res, next) => {
       // Nếu userId không nằm trong blockList, sử dụng populate để lấy danh sách bài viết
       await user.populate({
         path: "posts",
-        match: { group: { $exists: false } },
+        match: (baseMatch, virtual) => ({
+          ...virtual.options.match(baseMatch),
+          group: { $exists: false },
+        }),
         options: {
           sort: { created_at: -1 },
           skip: (page - 1) * limit,
@@ -972,8 +982,8 @@ const comment = async (req, res, next) => {
     const sess = await mongoose.startSession();
     sess.startTransaction();
     await newComment.save({ session: sess });
-    console.log("presave");
     await newComment.populate("user", "username profile_picture");
+    await newComment.populate("parent", "user");
     await sess.commitTransaction();
 
     res.status(201).json({ comment: newComment });
