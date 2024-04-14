@@ -26,13 +26,22 @@ class ConversationController {
           { _id: { $in: conversationIds } },
           { $or: [
             { is_deleted: { $exists: false } },
-            { "is_deleted.user_id": { $ne: userId } },
-            { "is_deleted.user_id": userId, "is_deleted.deleted": false }
+            {
+              is_deleted: {
+                $not: {
+                  $elemMatch: {
+                    user_id: userId,
+                    deleted: true
+                  }
+                }
+              }
+            }
           ] }
         ]
       })
       .sort({ updated_at: -1 }) // Sắp xếp theo thứ tự giảm dần của createdAt
       .exec();
+      console.log(conversations);
       
       for (const conversation of conversations) {
         let last_message = "";

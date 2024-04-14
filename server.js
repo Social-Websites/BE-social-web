@@ -102,6 +102,17 @@ DBconnect(() => {
       });
     });
 
+    socket.on("delete-chat", (data) => {
+      const recieveIds = data.recieve_ids;
+      recieveIds.forEach((recieveId) => {
+        const sendUserSocket = onlineUsers.get(recieveId);
+        if (sendUserSocket) {
+          socket.to(sendUserSocket).emit("delete-recieve", data);
+          console.log(sendUserSocket + "gui ne");
+        }
+      });
+    });
+
     socket.on("delete-msg", (data) => {
       const recieveIds = data.recieve_ids;
       recieveIds.forEach((recieveId) => {

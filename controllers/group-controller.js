@@ -28,7 +28,7 @@ class GroupsController {
       const g = await Group.findById(group_id);
       console.log("day neeeeeeeeeeeeeeeeeeeeeeeeeeee eeeeeeeee",g)
 
-      res.json({ _id: g._id, name: g.name, cover: g.cover, status: userToGroup.status });
+      res.json({ _id: g._id, name: g.name, cover: g.cover, description: g.description, status: userToGroup.status });
       
     } catch (err) {
       console.log(err);
@@ -56,8 +56,8 @@ class GroupsController {
       const groups = userToGroup.map((userGroup) => userGroup.group);
       const groupInfoPromises = groups.map(async (group) => {
         const g = await Group.findById(group._id);
-        const { _id, name, cover } = g;
-        return { _id, name, cover, status: "MEMBER" };
+        const { _id, name, description, cover } = g;
+        return { _id, name, cover, description, status: "MEMBER" };
       });
       const groupInfo = await Promise.all(groupInfoPromises);
       res.json({ groups: groupInfo });
@@ -87,8 +87,8 @@ class GroupsController {
       const groups = userToGroup.map((userGroup) => userGroup.group);
       const groupInfoPromises = groups.map(async (group) => {
         const g = await Group.findById(group._id);
-        const { _id, name, cover } = g;
-        return { _id, name, cover, status: "ADMIN" };
+        const { _id, name, cover, description } = g;
+        return { _id, name, cover, description, status: "ADMIN" };
       });
       const groupInfo = await Promise.all(groupInfoPromises);
       res.json({ groups: groupInfo });
@@ -124,8 +124,8 @@ class GroupsController {
             status: "ADMIN",
           }),
         ]);
-        const { _id, name, cover } = g;
-        return { _id, name, cover, owner: ownergroup.user, status: "INVITED" };
+        const { _id, name, description, cover } = g;
+        return { _id, name, cover, description, owner: ownergroup.user, status: "INVITED" };
       });
       const groupInfo = await Promise.all(groupInfoPromises);
       res.json({ groups: groupInfo });
@@ -356,6 +356,7 @@ class GroupsController {
           _id: group._id,
           name: group.name,
           cover: group.cover,
+          description: group.description,
           owner: ownergroup?.user,
           status: findgroup?.status,
         });
