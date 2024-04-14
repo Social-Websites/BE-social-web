@@ -734,6 +734,7 @@ const getSavedPosts = async (req, res, next) => {
         $or: [{ banned: false }, { banned: { $exists: false } }],
       },
       options: { skip: (page - 1) * limit, limit: limit },
+      populate: { path: "comments", select: { _id: 1 } },
     });
 
     if (!user) {

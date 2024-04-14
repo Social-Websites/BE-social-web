@@ -8,7 +8,7 @@ const commentSchema = new Schema(
   {
     user: { type: Types.ObjectId, required: true, ref: "User" },
     post: { type: Types.ObjectId, required: true, ref: "Post" },
-    cmt_level: { type: Number, require: true, enum: [1, 2], default: 1 },
+    cmt_level: { type: Number, required: true, enum: [1, 2], default: 1 },
     reply_to: { type: Types.ObjectId, ref: "Comment" }, //Trả lời 1 CMT (nếu CMT được trả lời cấp 1 or 2 thì this.parent = this.reply_to, cấp 3 thì this.parent = this.reply_to.mother_cmt, cả 2 TH thì this.cmt_level = this.mother_cmt.cmt_level + 1)
     parent: { type: Types.ObjectId, ref: "Comment" }, //CMT cấp cao hơn: this.parent.cmt_level < this.cmt_level
     //children: [{ type: Types.ObjectId, ref: "Comment" }], // Các CMT cấp thấp hơn: thấp nhất là 3
