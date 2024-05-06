@@ -434,6 +434,91 @@ const sendResetVerification = async (req, res, next) => {
   });
 };
 
+const mSendResetVerification = async (req, res, next) => {
+  const { usernameOrEmail } = req.body;
+
+  let existingUser;
+  try {
+    existingUser = await User.findOne({
+      $or: [
+        { username: usernameOrEmail },
+        { "user_info.email": usernameOrEmail },
+      ],
+      admin: false,
+    });
+
+    if (!existingUser) {
+      const error = new HttpError(
+        "Tên tài khoản hoặc email không tồn tại!",
+        404
+      );
+      return next(error);
+    }
+
+    const resetToken = tokenHandler.generateResetToken(existingUser._id);
+    existingUser.reset_token = resetToken;
+    await existingUser.save();
+
+    const OTP = generateOTP(6);
+    const otpToken = tokenHandler.generateOtpToken(existingUser.username, OTP);
+
+    const message = `Mã OTP xác thực đặt lại mật khẩu của bạn là: ${OTP}`;
+    const subject = `Đặt lại mật khẩu cho tài khoản NestMe`;
+    await sendMail({
+      mailto: existingUser.user_info.email,
+      subject: subject,
+      emailMessage: message,
+    });
+
+    res.json({ otp_token: otpToken });
+  } catch (err) {
+    console.log("Mail reset otp: ", err);
+    const error = new HttpError(
+      "Có lỗi trong quá trình đăng ký, vui lòng thử lại sau!",
+      500
+    );
+    return next(error);
+  }
+};
+
+const mVerifyResetOtp = async (req, res, next) => {
+  const { otpToken, otp } = req.body;
+
+  const decodedToken = tokenHandler.verifyOtpToken(otpToken);
+  if (!decodedToken) {
+    const error = new HttpError("Có lỗi khi xác thực!", 403);
+    return next(error);
+  }
+
+  if (decodedToken.otp.toString() !== otp.trim()) {
+    const error = new HttpError("Xác thực không thành công!", 403);
+    return next(error);
+  }
+
+  let existingUser;
+  try {
+    existingUser = await User.findOne({
+      username: decodedToken.username,
+      admin: false,
+    });
+  } catch (err) {
+    const error = new HttpError("Có lỗi trong quá trình xác thực!", 500);
+    return next(error);
+  }
+
+  if (!existingUser) {
+    const error = new HttpError("Xác thực không thành công!", 403);
+    return next(error);
+  }
+
+  if (!existingUser.reset_token || existingUser.reset_token.trim() === "") {
+    const error = new HttpError("Xác thực không thành công!", 403);
+    return next(error);
+  }
+
+  res.json({ reset_token: existingUser.reset_token.trim() });
+};
+
 const verifyResetLink = async (req, res, next) => {
   const token = req.params.token;
 
@@ -521,3 +606,5 @@ exports.logout = logout;
 exports.sendResetVerification = sendResetVerification;
 exports.verifyResetLink = verifyResetLink;
 exports.resetPassword = resetPassword;
+exports.mSendResetVerification = mSendResetVerification;
+exports.mVerifyResetOtp = mVerifyResetOtp;

@@ -8,7 +8,6 @@ const router = express.Router();
 router.get("/refresh", AuthController.refresh);
 router.post("/mrefresh", AuthController.mRefresh);
 
-
 router.post("/login", AuthController.login);
 router.post("/mlogin", AuthController.mlogin);
 router.post("/alogin", AuthController.aLogin);
@@ -18,6 +17,8 @@ router.get("/logout", AuthController.logout);
 router.post("/forgot-password", AuthController.sendResetVerification);
 router.get("/reset-password/:token", AuthController.verifyResetLink);
 router.patch("/reset-password", AuthController.resetPassword);
+router.post("/mforgot-password", AuthController.mSendResetVerification);
+router.post("/mverifyResetOtp", AuthController.mVerifyResetOtp);
 
 //Đăng nhập, đăng ký, đăng xuất
 router.get("/signup/:username/:email", AuthController.getOtpSignUp);
