@@ -34,6 +34,7 @@ router.post(
 
       return true;
     }),
+    check("visibility").optional(),
   ],
   PostController.createPost
 );

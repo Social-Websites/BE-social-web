@@ -31,11 +31,18 @@ const createPost = async (req, res, next) => {
     return next(error);
   }
 
-  const { title, urlStrings } = req.body;
+  const { title, urlStrings, visibility } = req.body;
+
+  const visibilityEnum = ["PUBLIC", "GROUP", "FRIENDS", "PRIVATE"];
+
   const newPost = new Post({
     creator: userId,
     content: title,
     media: urlStrings,
+    visibility:
+      !visibility || !visibilityEnum.includes(visibility)
+        ? "PUBLIC"
+        : visibility,
   });
 
   try {
@@ -475,6 +482,7 @@ const getHomePosts = async (req, res, next) => {
               $nin: blockListIds.map((id) => new mongoose.Types.ObjectId(id)),
             },
             status: { $exists: false },
+            visibility: { $in: ["PUBLIC", "FRIENDS"] },
 
             deleted_by: { $exists: false },
             $or: [{ banned: false }, { banned: { $exists: false } }],
@@ -648,6 +656,11 @@ const getUserPosts = async (req, res, next) => {
       (blockedUser) => blockedUser._id.toString() === userId
     );
 
+    let postVisibilities = ["PUBLIC"];
+    if (isFriend) postVisibilities.push("FRIENDS");
+    if (user._id.toString().trim() === authUser._id.toString().trim())
+      postVisibilities.push("PRIVATE");
+
     if (isBlocked) {
       // Nếu userId nằm trong blockList, có thể trả về mảng rỗng hoặc thông báo tùy chọn
       const error = new HttpError("Không tìm thấy posts!", 404);
@@ -659,6 +672,7 @@ const getUserPosts = async (req, res, next) => {
         match: (baseMatch, virtual) => ({
           ...virtual.options.match(baseMatch),
           group: { $exists: false },
+          visibility: { $in: postVisibilities },
         }),
         options: {
           sort: { created_at: -1 },

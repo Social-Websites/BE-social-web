@@ -8,8 +8,6 @@ const { validationResult } = require("express-validator");
 const React = require("../models/react");
 
 class GroupsController {
-
-
   // Lấy 1 group
   async get1Group(req, res, next) {
     const userId = req.userData.id;
@@ -23,13 +21,18 @@ class GroupsController {
       const userToGroup = await UserToGroup.findOne({
         user: userId,
         group_id: group_id,
-      })
+      });
 
       const g = await Group.findById(group_id);
-      console.log("day neeeeeeeeeeeeeeeeeeeeeeeeeeee eeeeeeeee",g)
+      console.log("day neeeeeeeeeeeeeeeeeeeeeeeeeeee eeeeeeeee", g);
 
-      res.json({ _id: g._id, name: g.name, cover: g.cover, description: g.description, status: userToGroup.status });
-      
+      res.json({
+        _id: g._id,
+        name: g.name,
+        cover: g.cover,
+        description: g.description,
+        status: userToGroup.status,
+      });
     } catch (err) {
       console.log(err);
       const error = new HttpError(
@@ -52,7 +55,7 @@ class GroupsController {
       const userToGroup = await UserToGroup.find({
         user: userId,
         status: "MEMBER",
-      })
+      });
       const groups = userToGroup.map((userGroup) => userGroup.group);
       const groupInfoPromises = groups.map(async (group) => {
         const g = await Group.findById(group._id);
@@ -83,7 +86,7 @@ class GroupsController {
       const userToGroup = await UserToGroup.find({
         user: userId,
         status: "ADMIN",
-      })
+      });
       const groups = userToGroup.map((userGroup) => userGroup.group);
       const groupInfoPromises = groups.map(async (group) => {
         const g = await Group.findById(group._id);
@@ -114,7 +117,7 @@ class GroupsController {
       const userToGroup = await UserToGroup.find({
         user: userId,
         status: "INVITED",
-      })
+      });
       const groups = userToGroup.map((userGroup) => userGroup.group);
       const groupInfoPromises = groups.map(async (group) => {
         const [g, ownergroup] = await Promise.all([
@@ -125,7 +128,14 @@ class GroupsController {
           }),
         ]);
         const { _id, name, description, cover } = g;
-        return { _id, name, cover, description, owner: ownergroup.user, status: "INVITED" };
+        return {
+          _id,
+          name,
+          cover,
+          description,
+          owner: ownergroup.user,
+          status: "INVITED",
+        };
       });
       const groupInfo = await Promise.all(groupInfoPromises);
       res.json({ groups: groupInfo });
@@ -333,8 +343,7 @@ class GroupsController {
       return next(error);
     }
     const searchText = req.query.searchText;
-    console.log("userId" + userId);
-    console.log("Search" + searchText);
+
     try {
       const regex = new RegExp(searchText, "i");
 

@@ -99,14 +99,6 @@ const getUserByUsername = async (req, res, next) => {
         path: "friend_requests",
         match: { banned: false },
         select: "_id",
-      })
-      .populate({
-        path: "posts",
-        match: (baseMatch, virtual) => ({
-          ...virtual.options.match(baseMatch),
-          group: { $exists: false },
-        }),
-        select: "creator",
       });
 
     if (!user) {
@@ -119,6 +111,21 @@ const getUserByUsername = async (req, res, next) => {
     const isFriendRequestSent = user.friend_requests.some((request) =>
       request._id.equals(userId)
     );
+
+    let postVisibilities = ["PUBLIC"];
+    if (isFriend) postVisibilities.push("FRIENDS");
+    if (user._id.toString().trim() === userId.trim())
+      postVisibilities.push("PRIVATE");
+
+    await user.populate({
+      path: "posts",
+      match: (baseMatch, virtual) => ({
+        ...virtual.options.match(baseMatch),
+        group: { $exists: false },
+        visibility: { $in: postVisibilities },
+      }),
+      select: "creator",
+    });
 
     // Tính toán số lượng bài viết
     let postsCount = user.posts.length;
