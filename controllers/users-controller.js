@@ -112,10 +112,12 @@ const getUserByUsername = async (req, res, next) => {
       request._id.equals(userId)
     );
 
-    let postVisibilities = ["PUBLIC"];
+    const postVisibilities = ["PUBLIC"];
     if (isFriend) postVisibilities.push("FRIENDS");
-    if (user._id.toString().trim() === userId.trim())
+    if (user._id.toString().trim() === userId.trim()) {
+      postVisibilities.push("FRIENDS");
       postVisibilities.push("PRIVATE");
+    }
 
     await user.populate({
       path: "posts",
@@ -124,7 +126,7 @@ const getUserByUsername = async (req, res, next) => {
         group: { $exists: false },
         visibility: { $in: postVisibilities },
       }),
-      select: "creator",
+      select: "creator visibility",
     });
 
     // Tính toán số lượng bài viết

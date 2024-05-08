@@ -478,7 +478,9 @@ const getHomePosts = async (req, res, next) => {
                 // Điều kiện cho creator là friendIds
                 creator: {
                   $in: friendIds.map((id) => new mongoose.Types.ObjectId(id)),
-                  $nin: blockListIds.map((id) => new mongoose.Types.ObjectId(id)),
+                  $nin: blockListIds.map(
+                    (id) => new mongoose.Types.ObjectId(id)
+                  ),
                 },
                 visibility: { $in: ["PUBLIC", "FRIENDS"] },
               },
@@ -661,10 +663,12 @@ const getUserPosts = async (req, res, next) => {
       (blockedUser) => blockedUser._id.toString() === userId
     );
 
-    let postVisibilities = ["PUBLIC"];
+    const postVisibilities = ["PUBLIC"];
     if (isFriend) postVisibilities.push("FRIENDS");
-    if (user._id.toString().trim() === authUser._id.toString().trim())
+    if (user._id.toString().trim() === authUser._id.toString().trim()) {
+      postVisibilities.push("FRIENDS");
       postVisibilities.push("PRIVATE");
+    }
 
     if (isBlocked) {
       // Nếu userId nằm trong blockList, có thể trả về mảng rỗng hoặc thông báo tùy chọn
