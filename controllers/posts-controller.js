@@ -473,23 +473,28 @@ const getHomePosts = async (req, res, next) => {
           {
             // Điều kiện cho các bài viết không có trường group
             group: { $exists: false },
-            $or: [
-              {
-                // Điều kiện cho creator là friendIds
-                creator: {
-                  $in: friendIds.map((id) => new mongoose.Types.ObjectId(id)),
-                  $nin: blockListIds.map(
-                    (id) => new mongoose.Types.ObjectId(id)
-                  ),
-                },
-                visibility: { $in: ["PUBLIC", "FRIENDS"] },
-              },
-              {
-                // Điều kiện cho creator là userId
-                creator: new mongoose.Types.ObjectId(userId),
-                visibility: { $in: ["PUBLIC", "FRIENDS", "PRIVATE"] },
-              },
-            ],
+            // Điều kiện cho creator là friendIds
+            creator: {
+              $in: friendIds.map((id) => new mongoose.Types.ObjectId(id)),
+              $nin: blockListIds.map((id) => new mongoose.Types.ObjectId(id)),
+            },
+            visibility: { $in: ["PUBLIC", "FRIENDS"] },
+
+            status: { $exists: false },
+            deleted_by: { $exists: false },
+            $or: [{ banned: false }, { banned: { $exists: false } }],
+          },
+          {
+            // Điều kiện cho các bài viết không có trường group
+            group: { $exists: false },
+
+            // Điều kiện cho creator là userId
+            creator: {
+              $in: [user._id],
+              $nin: blockListIds.map((id) => new mongoose.Types.ObjectId(id)),
+            },
+            visibility: { $in: ["PUBLIC", "FRIENDS", "PRIVATE"] },
+
             status: { $exists: false },
             deleted_by: { $exists: false },
             $or: [{ banned: false }, { banned: { $exists: false } }],
@@ -553,6 +558,7 @@ const getHomePosts = async (req, res, next) => {
         edit_at: 1,
         shared_by: 1,
         original_post: 1,
+        visibility: 1,
       })
       .project({
         group: {
@@ -574,6 +580,7 @@ const getHomePosts = async (req, res, next) => {
         edit_at: 1,
         shared_by: 1,
         original_post: 1,
+        visibility: 1,
       })
       .sort({ updated_at: -1 })
       .skip((page - 1) * limit)
