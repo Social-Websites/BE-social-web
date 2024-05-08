@@ -473,17 +473,22 @@ const getHomePosts = async (req, res, next) => {
           {
             // Điều kiện cho các bài viết không có trường group
             group: { $exists: false },
-
-            creator: {
-              $in: [
-                ...friendIds.map((id) => new mongoose.Types.ObjectId(id)),
-                new mongoose.Types.ObjectId(userId),
-              ],
-              $nin: blockListIds.map((id) => new mongoose.Types.ObjectId(id)),
-            },
+            $or: [
+              {
+                // Điều kiện cho creator là friendIds
+                creator: {
+                  $in: friendIds.map((id) => new mongoose.Types.ObjectId(id)),
+                  $nin: blockListIds.map((id) => new mongoose.Types.ObjectId(id)),
+                },
+                visibility: { $in: ["PUBLIC", "FRIENDS"] },
+              },
+              {
+                // Điều kiện cho creator là userId
+                creator: new mongoose.Types.ObjectId(userId),
+                visibility: { $in: ["PUBLIC", "FRIENDS", "PRIVATE"] },
+              },
+            ],
             status: { $exists: false },
-            visibility: { $in: ["PUBLIC", "FRIENDS"] },
-
             deleted_by: { $exists: false },
             $or: [{ banned: false }, { banned: { $exists: false } }],
           },
