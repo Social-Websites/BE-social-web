@@ -695,7 +695,10 @@ const getUserPosts = async (req, res, next) => {
           skip: (page - 1) * limit,
           limit: limit,
         },
-        populate: { path: "comments", select: { _id: 1 } },
+        populate: [
+          { path: "comments", select: { _id: 1 } },
+          { path: "creator", select: { username: 1, profile_picture: 1 } },
+        ],
       });
 
       const savedPostIds = authUser.saved_posts.map((savedPost) =>
@@ -765,7 +768,10 @@ const getSavedPosts = async (req, res, next) => {
         $or: [{ banned: false }, { banned: { $exists: false } }],
       },
       options: { skip: (page - 1) * limit, limit: limit },
-      populate: { path: "comments", select: { _id: 1 } },
+      populate: [
+        { path: "comments", select: { _id: 1 } },
+        { path: "creator", select: { username: 1, profile_picture: 1 } },
+      ],
     });
 
     if (!user) {
