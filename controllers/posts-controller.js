@@ -716,6 +716,7 @@ const getUserPosts = async (req, res, next) => {
 
           let returnPost = {
             _id: post._id,
+            creator: post.creator,
             reacts_count: post.reacts.length,
             comments_count: post.comments.length,
             created_at: post.created_at,
@@ -786,6 +787,7 @@ const getSavedPosts = async (req, res, next) => {
 
         return {
           _id: post._id,
+          creator: post.creator,
           reacts_count: post.reacts.length,
           comments_count: post.comments.length,
           created_at: post.created_at,
