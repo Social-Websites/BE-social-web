@@ -24,11 +24,11 @@ router.post("/create", GroupsController.createGroup);
 router.put("/accept", GroupsController.acceptGroup);
 router.put("/kick", GroupsController.kickGroup);
 router.post("/request", GroupsController.requestToGroup);
+router.put("/posts/:postId/approve", GroupsController.approveGroupPost);
+router.put("/posts/:postId/reject", GroupsController.rejectGroupPost);
 router.post("/:groupId/:userToInviteId/invite", GroupsController.inviteToGroup);
 router.put("/:groupId/:requesterId/accept", GroupsController.acceptRequest);
 router.put("/:groupId/:requesterId/reject", GroupsController.rejectRequest);
-router.put("/posts/:postId/approve", GroupsController.approveGroupPost);
-router.put("/posts/:postId/reject", GroupsController.rejectGroupPost);
 
 router.post(
   "/post",
