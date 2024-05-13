@@ -192,7 +192,7 @@ DBconnect(() => {
         } else {
           console.log("toi day chua");
           if (reponse !== null) {
-            console.log("sender_id:", receiver_id[0], " user_id:", sender_id, type);
+            //console.log("sender_id:", receiver_id[0], " user_id:", sender_id, type);
             const requested = Notification.findOne({
               sender_id: remove ? sender_id : (receiver_id && receiver_id[0] || userGroup && userGroup[0]),
               user_id: remove ? receiver_id[0] : sender_id,
