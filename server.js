@@ -126,7 +126,7 @@ DBconnect(() => {
 
     socket.on(
       "sendNotification",
-      async ({ sender_id, receiver_id, content_id, reponse, type, group_id }) => {
+      async ({ sender_id, receiver_id, content_id, reponse, type, group_id, remove }) => {
         let content = "";
         let userGroup = [];
         if (type == "like") {
@@ -192,16 +192,29 @@ DBconnect(() => {
         } else {
           console.log("toi day chua");
           if (reponse !== null) {
-            console.log("xoa a");
+            console.log("sender_id:", receiver_id[0], " user_id:", sender_id, type);
             const requested = Notification.findOne({
-              sender_id: receiver_id && receiver_id[0] || userGroup && userGroup[0],
-              user_id: sender_id,
+              sender_id: remove ? sender_id : (receiver_id && receiver_id[0] || userGroup && userGroup[0]),
+              user_id: remove ? receiver_id[0] : sender_id,
               content_id: null,
-              reponse: null,
+              reponse: null
             }).exec();
-            console.log(requested);
+            console.log("request: ",requested + "hihi");
             requested.then(async (notification) => {
-              await Notification.deleteOne({ _id: notification?._id }).exec();
+              console.log("id ne:",notification?._id)
+              const reponse = await Notification.deleteOne({ _id: notification?._id }).exec();
+              console.log(reponse)
+              if(remove){
+                const recieveIds = receiver_id || userGroup;
+                recieveIds.forEach(async (reciever) => {
+                  const sendUserSocket = onlineUsers.get(reciever);
+                  const data = { content_id: notification?._id, remove: true };
+                  if (sendUserSocket) {
+                    console.log("da gui cho " + sendUserSocket);
+                    socket.to(sendUserSocket).emit("getNotification", data);
+                  }
+                });
+              }
             });
           }
           const liked = Notification.findOne({ sender_id, content_id }).exec();
